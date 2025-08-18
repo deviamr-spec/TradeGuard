@@ -88,13 +88,26 @@ class ScalpingStrategy:
                 if (df[col] <= 0).any():
                     raise DataValidationError(f"Invalid price values in {col} for {symbol}")
 
-            # Validate OHLC logic
-            if ((df['high'] < df['low']) | 
-                (df['high'] < df['open']) | 
-                (df['high'] < df['close']) |
-                (df['low'] > df['open']) | 
-                (df['low'] > df['close'])).any():
-                raise DataValidationError(f"Invalid OHLC data for {symbol}")
+            # Validate OHLC logic with detailed error reporting
+            invalid_high_low = (df['high'] < df['low']).any()
+            invalid_high_open = (df['high'] < df['open']).any()
+            invalid_high_close = (df['high'] < df['close']).any()
+            invalid_low_open = (df['low'] > df['open']).any()
+            invalid_low_close = (df['low'] > df['close']).any()
+            
+            if invalid_high_low:
+                self.logger.error(f"❌ {symbol}: High < Low in data")
+            if invalid_high_open:
+                self.logger.error(f"❌ {symbol}: High < Open in data")
+            if invalid_high_close:
+                self.logger.error(f"❌ {symbol}: High < Close in data")
+            if invalid_low_open:
+                self.logger.error(f"❌ {symbol}: Low > Open in data")
+            if invalid_low_close:
+                self.logger.error(f"❌ {symbol}: Low > Close in data")
+                
+            if any([invalid_high_low, invalid_high_open, invalid_high_close, invalid_low_open, invalid_low_close]):
+                raise DataValidationError(f"Invalid OHLC data for {symbol} - see detailed errors above")
 
         except Exception as e:
             self.logger.error(f"❌ Data validation failed for {symbol}: {str(e)}")
