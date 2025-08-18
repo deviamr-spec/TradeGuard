@@ -321,10 +321,10 @@ class TradingBotConsoleDemo:
 
                 signal_result = self.strategy.generate_signal(df, symbol)
 
-                if signal_result:
-                    action = signal_result.get('action', 'HOLD')
+                if signal_result and signal_result.get('signal'):
+                    action = signal_result.get('signal', 'HOLD')
                     confidence = signal_result.get('confidence', 0)
-                    strength = signal_result.get('strength', 0)
+                    strength = signal_result.get('market_context', {}).get('atr', 0)
                     timestamp = datetime.now().strftime("%H:%M:%S")
 
                     self.last_signals[symbol] = {
@@ -339,7 +339,7 @@ class TradingBotConsoleDemo:
                         self.signal_count += 1
                     analyzed_count += 1
                 else:
-                    print(f"   {symbol:<10} {'HOLD':<8} {'N/A':<12} {'N/A':<10} {'N/A'}")
+                    print(f"   {symbol:<10} {'HOLD':<8} {'0.0':<12} {'0.00':<10} {'N/A'}")
 
             except Exception as e:
                 self.logger.error(f"Error analyzing {symbol}: {str(e)}")
