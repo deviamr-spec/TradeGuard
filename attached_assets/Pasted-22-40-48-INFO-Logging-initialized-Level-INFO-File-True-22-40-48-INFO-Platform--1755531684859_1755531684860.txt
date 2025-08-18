@@ -1,0 +1,82 @@
+22:40:48 | INFO | 🔧 Logging initialized - Level: INFO, File: True
+22:40:48 | INFO | 🖥️ Platform: win32
+22:40:48 | INFO | 🐍 Python: 3.13.5
+22:40:48 | INFO | 📂 Working Directory: C:\Users\pras\Desktop\TradeGuard
+22:40:48 | INFO | 🚀 Starting MT5 Trading Bot...
+22:40:48 | INFO | 🔍 Running startup diagnostics...
+22:40:48 | INFO | 🔍 Running startup diagnostics...
+22:40:48 | INFO | 🔍 Starting system diagnostics...
+22:40:48 | INFO | 🔄 Running check 1/10: System Info
+22:40:48 | INFO | ✅ System Info: PASSED
+22:40:48 | INFO | 🔄 Running check 2/10: Python Environment
+22:40:48 | INFO | ✅ Python Environment: PASSED
+22:40:48 | INFO | 🔄 Running check 3/10: Dependencies
+22:40:48 | ERROR | ❌ Dependencies: FAILED - Missing required packages: MetaTrader5
+22:40:48 | INFO | 🔄 Running check 4/10: MT5 Installation
+22:40:50 | INFO | ✅ MT5 Installation: PASSED
+22:40:50 | INFO | 🔄 Running check 5/10: Network Connectivity
+22:41:02 | WARNING | ⚠️ Network Connectivity: WARNING - Partial network connectivity
+22:41:02 | INFO | 🔄 Running check 6/10: Disk Space
+22:41:02 | INFO | ✅ Disk Space: PASSED
+22:41:02 | INFO | 🔄 Running check 7/10: Memory
+22:41:02 | INFO | ✅ Memory: PASSED
+22:41:02 | INFO | 🔄 Running check 8/10: Permissions
+22:41:02 | INFO | ✅ Permissions: PASSED
+22:41:02 | INFO | 🔄 Running check 9/10: MT5 Process
+22:41:02 | INFO | ✅ MT5 Process: PASSED
+22:41:02 | INFO | 🔄 Running check 10/10: Trading Account
+22:41:02 | WARNING | ⚠️ Trading Account: WARNING - DEMO account detected - Bot is configured for LIVE trading
+22:41:02 | INFO | 🏁 Diagnostics completed in 14.40s
+22:41:02 | INFO | 📊 Health Score: 70.0% (7/10 checks passed)
+22:41:02 | WARNING | ⚠️ System degraded (Score: 70.0%)
+22:41:02 | WARNING | 🔧 Consider resolving these warnings:
+22:41:02 | WARNING |    • Network Connectivity: Partial network connectivity
+22:41:02 | WARNING |    • Trading Account: DEMO account detected - Bot is configured for LIVE trading
+22:41:02 | INFO | ✅ Continuing with degraded system status
+22:41:02 | INFO | 🔌 Connecting to MetaTrader 5...
+22:41:03 | INFO | 🔌 Connecting to MetaTrader 5...
+22:41:03 | INFO | 🔄 Trying connection method 1...
+22:41:04 | INFO | ✅ MT5 connected using method 1
+22:41:04 | INFO | 📊 Account: 273631674
+22:41:04 | INFO | 💰 Balance: $4,315,335.58
+22:41:04 | INFO | 📈 Equity: $4,315,335.58
+22:41:04 | INFO | 🏦 Server: Exness-MT5Trial6
+22:41:04 | INFO | ✅ Trading is allowed
+22:41:04 | INFO | ✅ MT5 client connected successfully
+22:41:04 | INFO | ⚙️ Initializing trade engine...
+22:41:04 | INFO | 📊 Enhanced Scalping strategy initialized:
+22:41:04 | INFO |    EMA Fast: 12, EMA Slow: 26
+22:41:04 | INFO |    RSI Period: 14
+22:41:04 | INFO |    ATR Period: 14
+22:41:04 | INFO |    Bollinger Bands: 20 periods, 2.0 std
+22:41:04 | INFO | 🛡️ Risk Manager initialized:
+22:41:04 | INFO |    Risk per trade: 1.0%
+22:41:04 | INFO |    Max daily loss: 5.0%
+22:41:04 | INFO |    Max drawdown: 10.0%
+22:41:04 | INFO |    Max positions: 5
+22:41:04 | INFO | 📊 Reporting Manager initialized
+22:41:04 | INFO | ⚙️ Trade Engine initialized:
+22:41:04 | INFO |    Symbols: ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD']
+22:41:04 | INFO |    Timeframe: M1
+22:41:04 | INFO |    Update interval: 1.0s
+22:41:04 | INFO | 🖥️ Launching GUI...
+22:41:04 | ERROR | ❌ GUI initialization error: setWindowIcon(self, icon: QIcon): argument 1 has unexpected type 'QPixmap'
+22:41:06 | INFO | 🖥️ Main GUI window initialized
+22:41:06 | INFO | ✅ Trading bot initialized successfully
+22:41:07 | INFO | 🎯 Trading bot is now running...
+22:41:07 | ERROR | ❌ Status bar update error: 'MainWindow' object has no attribute 'connection_label'
+22:41:07 | ERROR | ❌ Status bar update error: 'MainWindow' object has no attribute 'connection_label'
+22:41:08 | ERROR | ❌ Status bar update error: 'MainWindow' object has no attribute 'connection_label'
+22:41:08 | ERROR | ❌ Status bar update error: 'MainWindow' object has no attribute 'connection_label'
+22:41:10 | ERROR | ❌ Status bar update error: 'MainWindow' object has no attribute 'connection_label'
+22:41:10 | ERROR | ❌ Status bar update error: 'MainWindow' object has no attribute 'connection_label'
+22:41:10 | ERROR | ❌ Status bar update error: 'MainWindow' object has no attribute 'connection_label'
+22:41:10 | ERROR | ❌ Status bar update error: 'MainWindow' object has no attribute 'connection_label'
+22:41:11 | INFO | 🔄 Closing application...
+22:41:11 | INFO | 🔄 Shutting down trading bot...
+22:41:11 | INFO | 🛑 Stopping trade engine...
+22:41:11 | WARNING | 🚨 Emergency closing all positions...
+22:41:11 | INFO | ✅ Trade engine stopped
+22:41:11 | INFO | 🔌 Disconnected from MT5
+22:41:11 | INFO | 🔄 Closing application...
+22:41:11 | INFO | ✅ Trading bot shutdown complete
