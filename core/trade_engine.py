@@ -41,7 +41,8 @@ class TradeEngine:
         self.mt5_client = mt5_client
         self.strategy = ScalpingStrategy()
         self.risk_manager = RiskManager()
-        self.reporting = ReportingManager()
+        # Fix: Initialize ReportingManager with proper parameters
+        self.reporting = ReportingManager(mt5_client, {})
 
         # Strategy management
         self.available_strategies = {

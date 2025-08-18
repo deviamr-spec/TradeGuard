@@ -20,6 +20,19 @@ from core.mt5_client import MT5Client
 from core.trade_engine import TradeEngine
 from gui.app import TradingBotGUI
 
+# Check and install MetaTrader5 if missing
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    import subprocess
+    import sys
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "MetaTrader5"])
+        import MetaTrader5 as mt5
+    except Exception as e:
+        print(f"Warning: Could not install MetaTrader5: {e}")
+        print("Bot will run in demo mode without MT5 connectivity")
+
 class TradingBotApplication:
     """Main trading bot application coordinator."""
     
@@ -64,11 +77,31 @@ class TradingBotApplication:
                 
             # Initialize trade engine
             self.logger.info("⚙️ Initializing trade engine...")
-            self.trade_engine = TradeEngine(self.mt5_client)
+            try:
+                self.trade_engine = TradeEngine(self.mt5_client)
+                self.logger.info("✅ Trade engine initialized successfully")
+            except Exception as e:
+                self.logger.error(f"❌ Trade engine initialization failed: {str(e)}")
+                self.logger.info("🔄 Creating basic trade engine for GUI compatibility...")
+                # Create a minimal trade engine for GUI compatibility
+                from core.trade_engine import TradeEngine
+                self.trade_engine = TradeEngine(self.mt5_client)
+                # Ensure all required attributes exist
+                if not hasattr(self.trade_engine, 'symbols'):
+                    self.trade_engine.symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"]
+                if not hasattr(self.trade_engine, 'running'):
+                    self.trade_engine.running = False
+                if not hasattr(self.trade_engine, 'trading_enabled'):
+                    self.trade_engine.trading_enabled = False
             
             # Initialize main GUI window
             self.logger.info("🖥️ Launching GUI...")
-            self.main_window = TradingBotGUI(self.mt5_client, self.trade_engine)
+            try:
+                self.main_window = TradingBotGUI(self.mt5_client, self.trade_engine)
+                self.logger.info("✅ GUI initialized successfully")
+            except Exception as e:
+                self.logger.error(f"❌ GUI initialization failed: {str(e)}")
+                raise
             
             # Setup update timer for real-time data
             self.update_timer = QTimer()

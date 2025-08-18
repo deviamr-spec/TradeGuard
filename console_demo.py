@@ -39,7 +39,8 @@ class TradingBotConsoleDemo:
         self.trade_engine = None
         self.strategy = ScalpingStrategy()
         self.risk_manager = RiskManager()
-        self.reporting = ReportingManager(None, {})
+        # Fix: Initialize ReportingManager with proper fallback
+        self.reporting = ReportingManager(None, {"initial_balance": 10000.0})
 
         # Mock account info with all required fields
         self.demo_account = {

@@ -39,24 +39,35 @@ class RiskManager:
         self.logger.info("✅ Risk Manager initialized")
 
     def get_risk_metrics(self) -> Dict[str, Any]:
-        """Get current risk metrics for monitoring."""
+        """
+        Get current risk metrics for GUI display.
+
+        Returns:
+            Risk metrics dictionary
+        """
         try:
             return {
-                "max_risk_per_trade": self.max_risk_per_trade,
-                "max_daily_loss": self.max_daily_loss,
-                "max_drawdown": self.max_drawdown,
                 "current_drawdown": self.current_drawdown,
-                "daily_loss": self.daily_loss,
-                "trades_today": self.trades_today,
-                "max_trades_per_day": self.max_trades_per_day,
-                "losing_streak": self.losing_streak,
-                "max_losing_streak": self.max_losing_streak,
-                "session_start_balance": self.session_start_balance,
-                "peak_balance": self.peak_balance
+                "max_drawdown": self.max_drawdown,
+                "margin_usage": self.margin_usage_percent,
+                "win_rate": (self.winning_trades / self.total_trades * 100) if self.total_trades > 0 else 0,
+                "profit_factor": abs(self.total_profit / self.total_loss) if self.total_loss != 0 else float('inf'),
+                "total_trades": self.total_trades,
+                "emergency_stop": self.emergency_stop_triggered,
+                "risk_score": self._calculate_risk_score()
             }
         except Exception as e:
-            self.logger.error(f"❌ Error getting risk metrics: {str(e)}")
-            return {}
+            self.logger.error(f"❌ Risk metrics error: {str(e)}")
+            return {
+                "current_drawdown": 0.0,
+                "max_drawdown": 0.0,
+                "margin_usage": 0.0,
+                "win_rate": 0.0,
+                "profit_factor": 1.0,
+                "total_trades": 0,
+                "emergency_stop": False,
+                "risk_score": 0.0
+            }
 
     def update_session_stats(self, account_info: Dict[str, Any]) -> None:
         """Update session statistics with current account info."""
@@ -241,35 +252,6 @@ class RiskManager:
             self.logger.error(f"❌ Position size calculation error: {str(e)}")
             return config.get("risk.min_lot_size", 0.01)
 
-    # Removed on_trade_executed from here as it was duplicated and modified above.
-    # The original on_trade_executed was:
-    # def on_trade_executed(self, trade_result: Dict[str, Any]) -> None:
-    #     """Update counters when a trade is executed."""
-    #     try:
-    #         with self.lock:
-    #             self.session_trades += 1
-    #             self.daily_trades += 1
-    #
-    #             self.logger.debug(f"📊 Trade executed: Session {self.session_trades}, Daily {self.daily_trades}")
-    #
-    #     except Exception as e:
-    #         self.logger.error(f"❌ Trade execution tracking error: {str(e)}")
-
-    # Removed update_session_stats from here as it was duplicated and modified above.
-    # The original update_session_stats was:
-    # def update_session_stats(self, account_info: Dict[str, Any]) -> None:
-    #     """Update session statistics."""
-    #     try:
-    #         with self.lock:
-    #             current_equity = account_info.get("equity", 0)
-    #
-    #             # Update max equity
-    #             if current_equity > self.session_max_equity:
-    #                 self.session_max_equity = current_equity
-    #
-    #     except Exception as e:
-    #         self.logger.error(f"❌ Session stats update error: {str(e)}")
-
     def emergency_stop_check(self, account_info: Dict[str, Any]) -> bool:
         """Check if emergency stop should be triggered."""
         try:
@@ -306,34 +288,48 @@ class RiskManager:
             return False
 
     def get_risk_report(self) -> Dict[str, Any]:
-        """Get comprehensive risk report."""
-        try:
-            if not self.session_start_time:
-                return {"error": "No active session"}
+        """
+        Generate comprehensive risk report.
 
-            session_duration = datetime.now() - self.session_start_time
-            hours = session_duration.total_seconds() / 3600
+        Returns:
+            Risk report dictionary
+        """
+        try:
+            current_time = datetime.now()
 
             return {
-                "session_duration": f"{hours:.1f}h",
-                "session_trades": self.session_trades,
-                "daily_trades": self.daily_trades,
-                "max_daily_trades": self.max_daily_trades,
+                "timestamp": current_time,
+                "session_duration_hours": (current_time - self.session_start_time).total_seconds() / 3600,
                 "session_start_balance": self.session_start_balance,
-                "max_equity": self.session_max_equity,
-                "emergency_stop": self.emergency_stop,
-                "trading_halted": self.trading_halted,
-                "risk_limits": {
-                    "risk_per_trade": f"{self.risk_per_trade*100:.1f}%",
-                    "max_daily_loss": f"{self.max_daily_loss*100:.1f}%",
-                    "max_drawdown": f"{self.max_drawdown*100:.1f}%",
-                    "max_positions": self.max_positions
-                }
+                "current_balance": self.current_balance,
+                "session_pnl": self.current_balance - self.session_start_balance,
+                "session_pnl_percent": ((self.current_balance - self.session_start_balance) / self.session_start_balance * 100) if self.session_start_balance > 0 else 0,
+                "daily_pnl": self.daily_pnl,
+                "daily_pnl_percent": (self.daily_pnl / self.daily_start_balance * 100) if self.daily_start_balance > 0 else 0,
+                "peak_balance": self.peak_balance,
+                "current_drawdown": self.current_drawdown,
+                "max_drawdown": self.max_drawdown,
+                "drawdown_percent": (self.current_drawdown / self.peak_balance * 100) if self.peak_balance > 0 else 0,
+                "risk_score": self._calculate_risk_score(),
+                "emergency_stop_active": self.emergency_stop_triggered,
+                "emergency_stop_reason": self.emergency_stop_reason,
+                "total_trades": self.total_trades,
+                "winning_trades": self.winning_trades,
+                "losing_trades": self.losing_trades,
+                "win_rate": (self.winning_trades / self.total_trades * 100) if self.total_trades > 0 else 0,
+                "average_profit": self.total_profit / self.winning_trades if self.winning_trades > 0 else 0,
+                "average_loss": abs(self.total_loss / self.losing_trades) if self.losing_trades > 0 else 0,
+                "profit_factor": abs(self.total_profit / self.total_loss) if self.total_loss != 0 else float('inf'),
+                "margin_usage_percent": self.margin_usage_percent,
+                "free_margin_percent": 100 - self.margin_usage_percent,
+                "position_count": len(self.open_positions),
+                "max_position_limit": self.max_positions,
+                "position_limit_usage": (len(self.open_positions) / self.max_positions * 100) if self.max_positions > 0 else 0
             }
 
         except Exception as e:
-            self.logger.error(f"❌ Risk report error: {str(e)}")
-            return {"error": str(e)}
+            self.logger.error(f"❌ Risk report generation error: {str(e)}")
+            return {"error": str(e), "timestamp": datetime.now()}
 
     def reset_emergency_stop(self) -> bool:
         """Reset emergency stop (manual override)."""

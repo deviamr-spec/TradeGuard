@@ -16,10 +16,18 @@ from utils.logging_setup import get_logger
 class ReportingManager:
     """Enhanced reporting and analytics system."""
 
-    def __init__(self, mt5_client=None, config: Dict[str, Any] = None):
+    def __init__(self, mt5_client=None, config_dict=None):
         self.logger = get_logger(__name__)
         self.mt5_client = mt5_client
-        self.config = config or {}
+        self.config = config_dict or {}
+
+        # Trading session tracking
+        self.session_start_time = datetime.now()
+        # Fix: Safely handle None config_dict
+        if config_dict and isinstance(config_dict, dict):
+            self.session_start_balance = config_dict.get('initial_balance', 10000.0)
+        else:
+            self.session_start_balance = 10000.0
 
         # Reporting configuration
         self.reports_dir = config.get('reports_dir', 'reports')
@@ -30,8 +38,9 @@ class ReportingManager:
         os.makedirs(self.reports_dir, exist_ok=True)
 
         # Performance tracking
-        self.session_start_time = datetime.now()
-        self.session_start_balance = 0.0
+        self.trades_data = [] # Initialize trades_data
+        self.equity_history = [self.session_start_balance] # Initialize equity_history
+
         self.trades_count = 0
         self.winning_trades = 0
         self.losing_trades = 0
@@ -41,67 +50,152 @@ class ReportingManager:
         self.logger.info("✅ Reporting Manager initialized")
 
     def get_performance_metrics(self) -> Dict[str, Any]:
-        """Get current performance metrics for monitoring."""
+        """
+        Get current performance metrics for GUI display.
+
+        Returns:
+            Performance metrics dictionary
+        """
+        return self.calculate_performance_metrics()
+
+    def calculate_performance_metrics(self) -> Dict[str, Any]:
+        """
+        Calculate comprehensive performance metrics.
+
+        Returns:
+            Performance metrics dictionary
+        """
         try:
-            account_info = self.mt5_client.get_account_info()
-            if not account_info:
+            if not self.trades_data:
                 return {
-                    "session_duration": "0:00:00",
-                    "trades_count": 0,
+                    "total_trades": 0,
+                    "winning_trades": 0,
+                    "losing_trades": 0,
                     "win_rate": 0.0,
+                    "total_profit": 0.0,
+                    "total_loss": 0.0,
+                    "net_profit": 0.0,
                     "profit_factor": 0.0,
-                    "total_pnl": 0.0,
-                    "balance": 0.0,
-                    "equity": 0.0
+                    "average_win": 0.0,
+                    "average_loss": 0.0,
+                    "largest_win": 0.0,
+                    "largest_loss": 0.0,
+                    "max_consecutive_wins": 0,
+                    "max_consecutive_losses": 0,
+                    "sharpe_ratio": 0.0,
+                    "max_drawdown": 0.0,
+                    "recovery_factor": 0.0,
+                    "profit_per_trade": 0.0,
+                    "session_duration_hours": 0.0,
+                    "trades_per_hour": 0.0
                 }
 
-            # Calculate session duration
-            session_duration = datetime.now() - self.session_start_time
-            duration_str = str(session_duration).split('.')[0]  # Remove microseconds
+            # Calculate basic metrics
+            total_trades = len(self.trades_data)
+            profits = [trade.get('profit', 0) for trade in self.trades_data]
 
-            # Calculate win rate
-            win_rate = 0.0
-            if self.trades_count > 0:
-                win_rate = (self.winning_trades / self.trades_count) * 100
+            winning_trades = len([p for p in profits if p > 0])
+            losing_trades = len([p for p in profits if p < 0])
 
-            # Calculate profit factor
-            profit_factor = 0.0
-            if abs(self.total_loss) > 0:
-                profit_factor = self.total_profit / abs(self.total_loss)
+            total_profit = sum([p for p in profits if p > 0])
+            total_loss = sum([p for p in profits if p < 0])
+            net_profit = sum(profits)
 
-            # Calculate total P&L
-            current_balance = account_info.get('balance', 0.0)
-            total_pnl = 0.0
-            if self.session_start_balance > 0:
-                total_pnl = current_balance - self.session_start_balance
+            win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+            profit_factor = abs(total_profit / total_loss) if total_loss != 0 else 0
+
+            average_win = total_profit / winning_trades if winning_trades > 0 else 0
+            average_loss = total_loss / losing_trades if losing_trades > 0 else 0
+
+            largest_win = max(profits) if profits else 0
+            largest_loss = min(profits) if profits else 0
+
+            # Calculate consecutive wins/losses
+            max_consecutive_wins, max_consecutive_losses = self._calculate_consecutive_streaks(profits)
+
+            # Calculate advanced metrics
+            sharpe_ratio = self._calculate_sharpe_ratio(profits)
+            max_drawdown = self._calculate_max_drawdown()
+            recovery_factor = abs(net_profit / max_drawdown) if max_drawdown != 0 else 0
+
+            profit_per_trade = net_profit / total_trades if total_trades > 0 else 0
+
+            # Session metrics
+            session_duration = (datetime.now() - self.session_start_time).total_seconds() / 3600
+            trades_per_hour = total_trades / session_duration if session_duration > 0 else 0
 
             return {
-                "session_duration": duration_str,
-                "trades_count": self.trades_count,
-                "winning_trades": self.winning_trades,
-                "losing_trades": self.losing_trades,
-                "win_rate": win_rate,
-                "profit_factor": profit_factor,
-                "total_pnl": total_pnl,
-                "total_profit": self.total_profit,
-                "total_loss": self.total_loss,
-                "balance": current_balance,
-                "equity": account_info.get('equity', 0.0),
+                "total_trades": total_trades,
+                "winning_trades": winning_trades,
+                "losing_trades": losing_trades,
+                "win_rate": round(win_rate, 2),
+                "total_profit": round(total_profit, 2),
+                "total_loss": round(total_loss, 2),
+                "net_profit": round(net_profit, 2),
+                "profit_factor": round(profit_factor, 2),
+                "average_win": round(average_win, 2),
+                "average_loss": round(average_loss, 2),
+                "largest_win": round(largest_win, 2),
+                "largest_loss": round(largest_loss, 2),
+                "max_consecutive_wins": max_consecutive_wins,
+                "max_consecutive_losses": max_consecutive_losses,
+                "sharpe_ratio": round(sharpe_ratio, 3),
+                "max_drawdown": round(max_drawdown, 2),
+                "recovery_factor": round(recovery_factor, 2),
+                "profit_per_trade": round(profit_per_trade, 2),
+                "session_duration_hours": round(session_duration, 2),
+                "trades_per_hour": round(trades_per_hour, 2),
                 "session_start_balance": self.session_start_balance,
-                "session_start_time": self.session_start_time.strftime("%Y-%m-%d %H:%M:%S")
+                "current_equity": self.equity_history[-1] if self.equity_history else self.session_start_balance
             }
 
         except Exception as e:
-            self.logger.error(f"❌ Error getting performance metrics: {str(e)}")
-            return {
-                "session_duration": "ERROR",
-                "trades_count": 0,
-                "win_rate": 0.0,
-                "profit_factor": 0.0,
-                "total_pnl": 0.0,
-                "balance": 0.0,
-                "equity": 0.0
-            }
+            self.logger.error(f"❌ Performance calculation error: {str(e)}")
+            return {"error": str(e)}
+
+    def _calculate_consecutive_streaks(self, profits: List[float]) -> tuple:
+        """Helper to calculate max consecutive wins and losses."""
+        max_wins = 0
+        max_losses = 0
+        current_wins = 0
+        current_losses = 0
+        for p in profits:
+            if p > 0:
+                current_wins += 1
+                max_losses = max(max_losses, current_losses)
+                current_losses = 0
+            elif p < 0:
+                current_losses += 1
+                max_wins = max(max_wins, current_wins)
+                current_wins = 0
+            else: # Draw
+                max_wins = max(max_wins, current_wins)
+                max_losses = max(max_losses, current_losses)
+                current_wins = 0
+                current_losses = 0
+        max_wins = max(max_wins, current_wins)
+        max_losses = max(max_losses, current_losses)
+        return max_wins, max_losses
+
+    def _calculate_sharpe_ratio(self, profits: List[float]) -> float:
+        """Helper to calculate Sharpe ratio."""
+        return self.calculate_sharpe_ratio(profits) # Re-using existing method
+
+    def _calculate_max_drawdown(self) -> float:
+        """Helper to calculate maximum drawdown."""
+        if not self.equity_history:
+            return 0.0
+
+        max_drawdown = 0.0
+        peak = self.equity_history[0]
+
+        for equity in self.equity_history[1:]:
+            if equity > peak:
+                peak = equity
+            else:
+                drawdown = peak - equity
+                max_drawdown = max(max_drawdown, drawdown)
+        return max_drawdown
 
     def initialize_session(self, account_info: Dict[str, Any]) -> None:
         """Initialize reporting for a new trading session."""
@@ -110,6 +204,9 @@ class ReportingManager:
             starting_balance = account_info.get("balance", 0.0)
 
             self.session_start_balance = starting_balance
+            self.trades_data = [] # Reset trades data
+            self.equity_history = [self.session_start_balance] # Reset equity history
+
             self.trades_count = 0
             self.winning_trades = 0
             self.losing_trades = 0
@@ -124,6 +221,8 @@ class ReportingManager:
     def log_trade(self, trade_data: Dict[str, Any]) -> None:
         """Log a completed trade."""
         try:
+            self.trades_data.append(trade_data) # Append trade data
+
             self.trades_count += 1
             profit = trade_data.get("profit", 0.0)
 
@@ -151,7 +250,8 @@ class ReportingManager:
         """Add equity data point for performance tracking."""
         # This method is not directly used in the current simplified reporting,
         # but can be re-integrated if detailed equity curve tracking is needed.
-        self.logger.debug(f"Debug: Equity point added (value not stored): {current_equity}")
+        self.equity_history.append(current_equity)
+        self.logger.debug(f"Debug: Equity point added: {current_equity}")
         pass
 
     def calculate_performance_metrics(self) -> Dict[str, Any]:
@@ -162,7 +262,7 @@ class ReportingManager:
 
             # Add specific metrics if needed or if get_performance_metrics needs enhancement
             # For example, calculating Sharpe ratio might require historical data which isn't explicitly stored here anymore.
-            # If historical data is needed, the ReportingManager would need to store trade profits/losses in a list.
+            # If historical data is needed, the ReportingManager would need to store and process them.
 
             return metrics
 
@@ -178,12 +278,14 @@ class ReportingManager:
 
             import numpy as np
             returns_array = np.array(returns)
-            excess_returns = returns_array - (risk_free_rate / 252)  # Daily risk-free rate
+            daily_risk_free_rate = risk_free_rate / 252 # Assuming 252 trading days in a year
+            excess_returns = returns_array - daily_risk_free_rate
 
-            if np.std(excess_returns) == 0:
+            std_dev = np.std(excess_returns)
+            if std_dev == 0:
                 return 0.0
 
-            return np.mean(excess_returns) / np.std(excess_returns) * np.sqrt(252)
+            return np.mean(excess_returns) / std_dev * np.sqrt(252)
 
         except Exception as e:
             self.logger.error(f"Sharpe ratio calculation error: {e}")
