@@ -175,9 +175,19 @@ class TradingBotConsoleDemo:
                     point = 0.00001 if "JPY" not in symbol else 0.001
                     if symbol in ["XAUUSD", "XAGUSD"]:
                         point = 0.01
+                    
+                    # Convert spread to pips for display
+                    spread_pips = self.symbol_prices[symbol]["spread"]
+                    if "JPY" in symbol:
+                        spread_pips = spread_pips / 0.01
+                    elif symbol in ["XAUUSD", "XAGUSD"]:
+                        spread_pips = spread_pips
+                    else:
+                        spread_pips = spread_pips / 0.0001
+                    
                     return {
                         "symbol": symbol,
-                        "spread": self.symbol_prices[symbol]["spread"],
+                        "spread": spread_pips,
                         "point": point
                     }
                 return None
@@ -189,6 +199,7 @@ class TradingBotConsoleDemo:
                         "symbol": symbol,
                         "bid": price_data["bid"],
                         "ask": price_data["ask"],
+                        "spread": price_data["spread"],
                         "time": datetime.now()
                     }
                 return None
@@ -336,26 +347,30 @@ class TradingBotConsoleDemo:
             try:
                 price_info = self.mt5_client.get_current_price(symbol)
                 if price_info:
-                    bid = price_info['bid']
-                    ask = price_info['ask']
+                    bid = price_info.get('bid', 0)
+                    ask = price_info.get('ask', 0)
+                    spread_raw = price_info.get('spread', 0)
 
                     # Calculate spread in pips for display
                     symbol_info = self.mt5_client.get_symbol_info(symbol)
                     if symbol_info:
-                        spread_value = symbol_info.get('spread', 0)
-                        if symbol == "XAUUSD" or symbol == "XAGUSD":
-                            spread_display = f"{spread_value:.2f}"
-                        elif "JPY" in symbol:
-                            spread_display = f"{spread_value / 0.01:.1f}"
-                        else:
-                            spread_display = f"{spread_value / 0.0001:.1f}"
+                        spread_display = f"{symbol_info.get('spread', 0):.1f}"
                     else:
-                        spread_display = "N/A"
+                        # Fallback calculation
+                        if symbol == "XAUUSD" or symbol == "XAGUSD":
+                            spread_display = f"{spread_raw:.2f}"
+                        elif "JPY" in symbol:
+                            spread_display = f"{spread_raw / 0.01:.1f}"
+                        else:
+                            spread_display = f"{spread_raw / 0.0001:.1f}"
 
-                    time_str = price_info['time'].strftime("%H:%M:%S")
+                    time_str = price_info.get('time', datetime.now()).strftime("%H:%M:%S")
 
                     print(f"{symbol:<10} {bid:<10.5f} {ask:<10.5f} {spread_display:<8} {time_str:<12}")
 
+            except KeyError as e:
+                self.logger.error(f"Missing key in price data for {symbol}: {str(e)}")
+                print(f"{symbol:<10} {'KeyError':<10} {'KeyError':<10} {'N/A':<8} {'N/A':<12}")
             except Exception as e:
                 self.logger.error(f"Error fetching price for {symbol}: {str(e)}")
                 print(f"{symbol:<10} {'Error':<10} {'Error':<10} {'N/A':<8} {'N/A':<12}")
@@ -396,17 +411,23 @@ class TradingBotConsoleDemo:
         strategy_signals = []
         for symbol in self.demo_symbols:
             try:
+                # Get historical data with timeout protection
                 df = self.mt5_client.get_historical_data(symbol, "M1", 100)
                 if df is not None and len(df) > 50:
                     # Validate data before strategy analysis
                     if self._validate_dataframe(df, symbol):
                         signal = self.strategy.generate_signal(df, symbol)
                         strategy_signals.append((symbol, signal))
+                        analyzed_count += 1
                     else:
                         self.logger.warning(f"⚠️ Invalid data structure for {symbol}")
                         strategy_signals.append((symbol, {"signal": "INVALID_DATA", "confidence": 0.0}))
                 else:
+                    self.logger.debug(f"📊 Insufficient data for {symbol}: {len(df) if df is not None else 0} bars")
                     strategy_signals.append((symbol, {"signal": "NO_DATA", "confidence": 0.0}))
+            except (ValueError, TypeError) as e:
+                self.logger.error(f"❌ Data error for {symbol}: {str(e)}")
+                strategy_signals.append((symbol, {"signal": "DATA_ERROR", "confidence": 0.0}))
             except Exception as e:
                 self.logger.error(f"❌ Strategy error for {symbol}: {str(e)}")
                 strategy_signals.append((symbol, {"signal": "ERROR", "confidence": 0.0}))
@@ -537,11 +558,15 @@ class TradingBotConsoleDemo:
                 try:
                     start_time = time.time()
 
-                    # System health check
+                    # System health check with connection monitoring
                     if not self._health_check():
                         self.logger.warning("⚠️ System health check failed, attempting recovery...")
                         if not self._attempt_recovery():
                             self.logger.error("❌ Recovery failed, continuing with limited functionality")
+                            # Log connection status for monitoring
+                            if hasattr(self, 'mt5_client'):
+                                connection_status = getattr(self.mt5_client, 'connected', False)
+                                self.logger.warning(f"🔗 Connection status: {'Connected' if connection_status else 'Disconnected'}")
 
                     # Clear screen and print header
                     self._clear_screen()

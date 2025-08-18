@@ -8,6 +8,30 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 
+import time
+from functools import wraps
+
+def performance_monitor(func):
+    """Decorator to monitor function performance."""
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        start_time = time.time()
+        try:
+            result = func(self, *args, **kwargs)
+            duration = time.time() - start_time
+            if duration > 0.5:  # Log if function takes more than 500ms
+                self.logger.warning(f"⚱️ {func.__name__} took {duration:.3f}s")
+            else:
+                self.logger.debug(f"⏱️ {func.__name__} completed in {duration:.3f}s")
+            return result
+        except Exception as e:
+            duration = time.time() - start_time
+            self.logger.error(f"❌ {func.__name__} failed after {duration:.3f}s: {str(e)}")
+            raise
+    return wrapper
+
+
+
 from core.config import config
 from utils.logging_setup import get_logger
 
@@ -70,44 +94,63 @@ class ScalpingStrategy:
             DataValidationError: If data validation fails
         """
         try:
-            if df is None or df.empty:
-                raise DataValidationError(f"Empty or None DataFrame for {symbol}")
+            if df is None:
+                raise DataValidationError(f"None DataFrame for {symbol}")
+            
+            if df.empty:
+                raise DataValidationError(f"Empty DataFrame for {symbol}")
 
             required_columns = ['open', 'high', 'low', 'close', 'tick_volume']
             missing_columns = [col for col in required_columns if col not in df.columns]
             if missing_columns:
                 raise DataValidationError(f"Missing columns for {symbol}: {missing_columns}")
 
-            if len(df) < max(self.ema_slow, self.rsi_period) + 10:
-                raise DataValidationError(f"Insufficient data for {symbol}: {len(df)} bars (need at least {max(self.ema_slow, self.rsi_period) + 10})")
+            min_required_rows = max(self.ema_slow, self.rsi_period) + 10
+            if len(df) < min_required_rows:
+                raise DataValidationError(f"Insufficient data for {symbol}: {len(df)} bars (need at least {min_required_rows})")
 
-            # Check for valid price data
+            # Check for valid price data with detailed logging
             for col in ['open', 'high', 'low', 'close']:
-                if df[col].isna().any():
-                    raise DataValidationError(f"NaN values found in {col} for {symbol}")
-                if (df[col] <= 0).any():
-                    raise DataValidationError(f"Invalid price values in {col} for {symbol}")
-
-            # Validate OHLC logic with detailed error reporting
-            invalid_high_low = (df['high'] < df['low']).any()
-            invalid_high_open = (df['high'] < df['open']).any()
-            invalid_high_close = (df['high'] < df['close']).any()
-            invalid_low_open = (df['low'] > df['open']).any()
-            invalid_low_close = (df['low'] > df['close']).any()
-            
-            if invalid_high_low:
-                self.logger.error(f"❌ {symbol}: High < Low in data")
-            if invalid_high_open:
-                self.logger.error(f"❌ {symbol}: High < Open in data")
-            if invalid_high_close:
-                self.logger.error(f"❌ {symbol}: High < Close in data")
-            if invalid_low_open:
-                self.logger.error(f"❌ {symbol}: Low > Open in data")
-            if invalid_low_close:
-                self.logger.error(f"❌ {symbol}: Low > Close in data")
+                na_count = df[col].isna().sum()
+                if na_count > 0:
+                    raise DataValidationError(f"NaN values found in {col} for {symbol}: {na_count} out of {len(df)} rows")
                 
-            if any([invalid_high_low, invalid_high_open, invalid_high_close, invalid_low_open, invalid_low_close]):
-                raise DataValidationError(f"Invalid OHLC data for {symbol} - see detailed errors above")
+                zero_negative_count = (df[col] <= 0).sum()
+                if zero_negative_count > 0:
+                    raise DataValidationError(f"Invalid price values in {col} for {symbol}: {zero_negative_count} non-positive values")
+
+            # Validate OHLC logic with specific error counts
+            validation_errors = []
+            
+            high_low_errors = (df['high'] < df['low']).sum()
+            if high_low_errors > 0:
+                validation_errors.append(f"High < Low: {high_low_errors} instances")
+            
+            high_open_errors = (df['high'] < df['open']).sum()
+            if high_open_errors > 0:
+                validation_errors.append(f"High < Open: {high_open_errors} instances")
+            
+            high_close_errors = (df['high'] < df['close']).sum()
+            if high_close_errors > 0:
+                validation_errors.append(f"High < Close: {high_close_errors} instances")
+            
+            low_open_errors = (df['low'] > df['open']).sum()
+            if low_open_errors > 0:
+                validation_errors.append(f"Low > Open: {low_open_errors} instances")
+            
+            low_close_errors = (df['low'] > df['close']).sum()
+            if low_close_errors > 0:
+                validation_errors.append(f"Low > Close: {low_close_errors} instances")
+                
+            if validation_errors:
+                error_summary = "; ".join(validation_errors)
+                self.logger.error(f"❌ {symbol} OHLC validation errors: {error_summary}")
+                raise DataValidationError(f"Invalid OHLC data for {symbol}: {error_summary}")
+
+            # Additional data quality checks
+            if df['tick_volume'].isna().any():
+                self.logger.warning(f"⚠️ {symbol}: Missing tick volume data, using default values")
+                df['tick_volume'] = df['tick_volume'].fillna(100)
 
         except Exception as e:
             self.logger.error(f"❌ Data validation failed for {symbol}: {str(e)}")
@@ -239,6 +282,7 @@ class ScalpingStrategy:
                 raise
             raise IndicatorCalculationError(f"ATR calculation failed: {str(e)}")
 
+    @performance_monitor
     def generate_signal(self, df: pd.DataFrame, symbol: str) -> Dict[str, Any]:
         """
         Generate trading signal with comprehensive error handling.

@@ -55,3 +55,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python console_demo.py"
+
+[[workflows.workflow]]
+name = "Run Tests"
+author = 46583607
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -m pytest tests/ -v"
