@@ -1,0 +1,52 @@
+00:46:03 | INFO | 🔧 Logging initialized - Level: INFO, File: True
+00:46:03 | INFO | 🖥️ Platform: win32
+00:46:03 | INFO | 🐍 Python: 3.13.5
+00:46:03 | INFO | 📂 Working Directory: C:\Users\pras\Desktop\topred1\TradeGuard
+00:46:03 | INFO | 🚀 Starting MT5 Trading Bot...
+00:46:03 | INFO | 🔍 Running startup diagnostics...
+00:46:03 | INFO | 🔍 Running startup diagnostics...
+00:46:03 | INFO | 🔍 Starting system diagnostics...
+00:46:03 | INFO | 🔄 Running check 1/10: System Info
+00:46:03 | INFO | ✅ System Info: PASSED
+00:46:03 | INFO | 🔄 Running check 2/10: Python Environment
+00:46:03 | INFO | ✅ Python Environment: PASSED
+00:46:03 | INFO | 🔄 Running check 3/10: Dependencies
+00:46:03 | ERROR | ❌ Dependencies: FAILED - Missing required packages: MetaTrader5
+00:46:03 | INFO | 🔄 Running check 4/10: MT5 Installation
+00:46:03 | INFO | ✅ MT5 Installation: PASSED
+00:46:03 | INFO | 🔄 Running check 5/10: Network Connectivity
+00:46:15 | WARNING | ⚠️ Network Connectivity: WARNING - Partial network connectivity
+00:46:15 | INFO | 🔄 Running check 6/10: Disk Space
+00:46:15 | INFO | ✅ Disk Space: PASSED
+00:46:15 | INFO | 🔄 Running check 7/10: Memory
+00:46:15 | INFO | ✅ Memory: PASSED
+00:46:15 | INFO | 🔄 Running check 8/10: Permissions
+00:46:15 | INFO | ✅ Permissions: PASSED
+00:46:15 | INFO | 🔄 Running check 9/10: MT5 Process
+00:46:15 | INFO | ✅ MT5 Process: PASSED
+00:46:15 | INFO | 🔄 Running check 10/10: Trading Account
+00:46:15 | WARNING | ⚠️ Trading Account: WARNING - DEMO account detected - Bot is configured for LIVE trading
+00:46:15 | INFO | 🏁 Diagnostics completed in 12.14s
+00:46:15 | INFO | 📊 Health Score: 70.0% (7/10 checks passed)
+00:46:15 | WARNING | ⚠️ System degraded (Score: 70.0%)
+00:46:15 | WARNING | 🔧 Consider resolving these warnings:
+00:46:15 | WARNING |    • Network Connectivity: Partial network connectivity
+00:46:15 | WARNING |    • Trading Account: DEMO account detected - Bot is configured for LIVE trading
+00:46:15 | INFO | ✅ Continuing with degraded system status
+00:46:16 | INFO | 🔌 Connecting to MetaTrader 5...
+00:46:16 | INFO | 🔄 Connection attempt 1/3
+00:46:16 | INFO | 🔌 Connecting to MetaTrader 5...
+00:46:16 | INFO | ✅ MT5 connected using simple method
+00:46:16 | INFO | 📊 Account: 273631674
+00:46:16 | INFO | 💰 Balance: $4,315,335.58
+00:46:16 | INFO | 📈 Equity: $4,315,335.58
+00:46:16 | INFO | 🏦 Server: Exness-MT5Trial6
+00:46:16 | INFO | ✅ Trading is allowed
+00:46:16 | INFO | ✅ MT5 client connected successfully (attempt 1)
+00:46:16 | INFO | ⚙️ Initializing trade engine...
+00:46:16 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+00:46:16 | INFO | ✅ Risk Manager initialized
+00:46:16 | ERROR | ❌ Initialization failed: 'NoneType' object has no attribute 'get'
+00:46:19 | INFO | 🔄 Shutting down trading bot...
+00:46:19 | INFO | 🔌 Disconnected from MT5
+00:46:19 | INFO | ✅ Trading bot shutdown complete
