@@ -1,0 +1,54 @@
+{
+    "mt5": {
+        "path": "",
+        "login": 0,
+        "server": "",
+        "password": ""
+    },
+    "trading": {
+        "symbols": [
+            "EURUSD",
+            "GBPUSD",
+            "USDJPY",
+            "XAUUSD"
+        ],
+        "timeframe": "M1",
+        "max_positions": 5,
+        "max_risk_per_trade": 0.02,
+        "max_daily_loss": 0.05,
+        "max_drawdown": 0.1,
+        "trading_hours": {
+            "start": "00:00",
+            "end": "23:59",
+            "timezone": "UTC"
+        }
+    },
+    "strategy": {
+        "name": "Scalping",
+        "parameters": {
+            "ema_fast": 12,
+            "ema_slow": 26,
+            "rsi_period": 14,
+            "rsi_overbought": 70,
+            "rsi_oversold": 30,
+            "min_confidence": 60.0
+        }
+    },
+    "risk_management": {
+        "use_fixed_lot_size": false,
+        "fixed_lot_size": 0.01,
+        "risk_per_trade": 0.02,
+        "max_spread_pips": 3,
+        "slippage_tolerance": 2
+    },
+    "gui": {
+        "update_interval": 1000,
+        "chart_history_days": 30,
+        "auto_save_reports": true
+    },
+    "logging": {
+        "level": "INFO",
+        "max_file_size": "10MB",
+        "backup_count": 5
+    }
+}
