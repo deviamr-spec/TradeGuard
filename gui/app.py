@@ -366,6 +366,10 @@ class TradingBotGUI(QMainWindow):
         except Exception as e:
             self.logger.error(f"❌ Failed to start updates: {str(e)}")
 
+    def update_data(self):
+        """Public method for external data updates."""
+        self.update_gui_data()
+
     def update_gui_data(self):
         """Update all GUI components with latest data."""
         try:
@@ -386,20 +390,21 @@ class TradingBotGUI(QMainWindow):
             current_time = datetime.now().strftime("%H:%M:%S")
             self.time_label.setText(current_time)
 
-            # Update all widgets
+            # Update all widgets safely
             for widget_name, widget in self.widgets.items():
                 try:
                     if hasattr(widget, 'update_data'):
-                        widget.update_data()
+                        if widget_name == 'equity_chart':
+                            # Handle equity chart specially
+                            if self.mt5_client.connected:
+                                account_info = self.mt5_client.get_account_info()
+                                if account_info:
+                                    equity = account_info.get('equity', 0.0)
+                                    widget.update_data(equity)
+                        else:
+                            widget.update_data()
                 except Exception as e:
                     self.logger.error(f"❌ Widget {widget_name} update error: {str(e)}")
-
-            # Update equity chart if connected
-            if self.mt5_client.connected and 'equity_chart' in self.widgets:
-                account_info = self.mt5_client.get_account_info()
-                if account_info:
-                    equity = account_info.get('equity', 0.0)
-                    self.widgets['equity_chart'].update_data(equity)
 
         except Exception as e:
             self.logger.error(f"❌ GUI update error: {str(e)}")
