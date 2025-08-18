@@ -1,0 +1,211 @@
+This document is a step-by-step full instruction for Replit Agent to build a real automatic trading bot that connects to MetaTrader 5 (MT5) for live trading (not demo, not dummy). The bot must be modular (multiple folders, not single file), have a clean GUI, support user-defined TP/SL in percentage or pips, and display live reports of account status. Reference the structure, connection logic, and trade management style from bobot2.py where applicable, but ensure no errors, no dummy data, and no redundant imports.
+
+Step 1 — Project Scaffold
+
+Create a Python project with the following folder structure:
+
+project_root/
+├── main.py                     # Entry point to run the bot
+├── core/                       # Core trading logic
+│   ├── __init__.py
+│   ├── config.py               # Read config/env, store MT5 credentials
+│   ├── mt5_client.py           # All MT5 connection & order operations
+│   ├── strategy/               # Trading strategies
+│   │   ├── __init__.py
+│   │   └── scalping.py         # Default scalping strategy
+│   ├── risk.py                 # Risk management (lot size, SL/TP)
+│   ├── reporting.py            # Live reports (balance, equity, profit)
+│   └── trade_engine.py         # Decision engine (calls strategy + execute)
+├── gui/                        # Graphical user interface
+│   ├── __init__.py
+│   ├── app.py                  # GUI main window
+│   └── widgets.py              # Reusable GUI widgets
+├── utils/                      # Helpers & shared functions
+│   ├── __init__.py
+│   ├── logging_setup.py        # Logger configuration
+│   └── diagnostics.py          # Startup checks (connection, ping, account)
+├── requirements.txt            # Python dependencies
+└── README.md                   # Documentation
+
+Ensure every folder has __init__.py.
+
+Use consistent logging and typing.
+
+Reference bobot2.py: adopt its modular trade/session handling patterns, but remove duplicated logic and clean up error handling.
+
+Step 2 — Dependencies
+
+Add to requirements.txt:
+
+MetaTrader5
+PyQt5
+pandas
+numpy
+
+Code must import only from these and Python stdlib.
+
+Do not add unused imports.
+
+If bobot2.py used external dependencies, include them only if necessary.
+
+Step 3 — Config & Auto-Login
+
+core/config.py:
+
+Store MT5 account, password, server in a config dict.
+
+No interactive login; must auto-connect.
+
+Load from .env or config file.
+
+Reference bobot2.py: replicate its environment variable approach but ensure secure handling.
+
+Step 4 — Logging Setup
+
+utils/logging_setup.py:
+
+Configure rotating file + console logger.
+
+Levels: INFO, ERROR, DEBUG.
+
+Every module must import and use this logger.
+
+Cross-check with bobot2.py logging style and improve consistency.
+
+Step 5 — MT5 Client (Connection)
+
+core/mt5_client.py:
+
+Function to initialize and login MT5.
+
+Function to shutdown MT5 properly.
+
+Function to fetch account info and symbol data.
+
+Raise error if login fails.
+
+Must confirm that connection is REAL trading account, not demo.
+
+Add diagnostic check: reject if demo account.
+
+Reference bobot2.py: reuse its connection pattern but ensure no hardcoded paths or broken indentation.
+
+Step 6 — Diagnostics
+
+utils/diagnostics.py:
+
+Verify MT5 terminal is installed and path is correct.
+
+Check internet latency to broker server.
+
+Confirm account type (real, not demo).
+
+Test order send in simulation mode (without executing real trade).
+
+Log all results clearly.
+
+Reference bobot2.py: clean up its diagnostic routines, avoid duplicated code.
+
+Step 7 — Strategy (Scalping)
+
+core/strategy/scalping.py:
+
+Entry logic: based on EMA cross (fast/slow) + RSI confirmation.
+
+TP/SL must support % of price OR fixed pips.
+
+Risk per trade = 1% of balance (configurable).
+
+Code must be modular: easy to add other strategies later.
+
+If bobot2.py already contains EMA/RSI logic, reuse and refactor for clarity.
+
+Step 8 — Risk Management
+
+core/risk.py:
+
+Function to calculate lot size based on balance and risk%.
+
+Function to enforce max daily loss limit.
+
+Reject trade if spread > threshold.
+
+Ensure this logic is cleaner than in bobot2.py with strict type hints.
+
+Step 9 — Trade Engine
+
+core/trade_engine.py:
+
+Fetch tick data.
+
+Call strategy to decide entry/exit.
+
+Place trades via mt5_client.py.
+
+Apply risk management before execution.
+
+Log every action.
+
+Reference bobot2.py: copy useful trade execution sequence but fix error handling and avoid duplicated functions.
+
+Step 10 — Reporting
+
+core/reporting.py:
+
+Fetch account info (balance, equity, margin).
+
+Track open positions & history.
+
+Export live stats to GUI.
+
+Must output clean dicts or DataFrames similar to bobot2.py reporting functions but improved.
+
+Step 11 — GUI
+
+gui/app.py:
+
+PyQt5 window showing:
+
+Account info (name, balance, equity, margin).
+
+Open trades (symbol, lot, P/L).
+
+Live equity chart.
+
+Settings panel (TP/SL by % or pips).
+
+Integrate reporting.py.
+
+gui/widgets.py:
+
+Create reusable widgets for account panel, trade table, chart.
+
+Step 12 — Main Entry Point
+
+main.py:
+
+Initialize logging.
+
+Run diagnostics.
+
+Connect MT5.
+
+Start GUI.
+
+Reference main flow from bobot2.py but modularized.
+
+Step 13 — Crosscheck & Audit Rules
+
+No unused imports.
+
+No fake/dummy data.
+
+No interactive login.
+
+Confirm connection is REAL.
+
+Each file must have docstring + type hints.
+
+Run step-by-step tests after each implementation.
+
+Compare output behavior with bobot2.py to ensure feature parity but better reliability.
