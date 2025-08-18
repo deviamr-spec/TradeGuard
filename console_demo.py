@@ -103,7 +103,8 @@ class TradingBotConsoleDemo:
                 "mid": price,
                 "bid": price - spread/2,
                 "ask": price + spread/2,
-                "spread": spread
+                "spread": spread,
+                "time": datetime.now()
             }
         # Store initial prices for _update_demo_prices
         self.symbol_prices = self.demo_prices.copy()
@@ -200,7 +201,7 @@ class TradingBotConsoleDemo:
                         "bid": price_data["bid"],
                         "ask": price_data["ask"],
                         "spread": price_data["spread"],
-                        "time": datetime.now()
+                        "time": price_data.get("time", datetime.now())
                     }
                 return None
 
@@ -492,6 +493,7 @@ class TradingBotConsoleDemo:
             # Update prices with small random movements
             for symbol in self.symbol_prices:
                 current_bid = self.symbol_prices[symbol]["bid"]
+                current_spread = self.symbol_prices[symbol]["spread"]
 
                 # Different volatility for different instrument types
                 if "XAU" in symbol:  # Gold
@@ -512,9 +514,11 @@ class TradingBotConsoleDemo:
                 new_ask = new_bid + min_spread
 
                 self.symbol_prices[symbol] = {
+                    "mid": (new_bid + new_ask) / 2,
                     "bid": round(new_bid, 5),
                     "ask": round(new_ask, 5),
-                    "time": datetime.now().strftime("%H:%M:%S")
+                    "spread": min_spread,
+                    "time": datetime.now()
                 }
 
             # Simulate account changes (simplified)

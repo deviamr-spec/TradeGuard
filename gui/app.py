@@ -488,9 +488,31 @@ class MainWindow(QMainWindow):
     def start_trading(self):
         """Start automated trading."""
         try:
+            # Show loading dialog
+            from PyQt5.QtWidgets import QProgressDialog
+            from PyQt5.QtCore import Qt
+            
+            progress = QProgressDialog("Initializing trading engine...", "Cancel", 0, 100, self)
+            progress.setWindowModality(Qt.WindowModal)
+            progress.show()
+            progress.setValue(10)
+            
             if not self.mt5_client.connected:
+                progress.close()
                 QMessageBox.warning(self, "Connection Error", "MT5 is not connected!")
                 return
+
+            progress.setValue(30)
+            
+            # Check connection health
+            if not self.mt5_client.is_connection_healthy():
+                progress.setLabelText("Reconnecting to MT5...")
+                if not self.mt5_client.auto_reconnect():
+                    progress.close()
+                    QMessageBox.critical(self, "Connection Error", "Failed to establish healthy MT5 connection!")
+                    return
+            
+            progress.setValue(50)
 
             reply = QMessageBox.question(
                 self,
@@ -502,16 +524,30 @@ class MainWindow(QMainWindow):
             )
 
             if reply == QMessageBox.Yes:
+                progress.setLabelText("Starting trading engine...")
+                progress.setValue(70)
+                
                 if not self.trade_engine.running:
+                    progress.setValue(90)
                     if self.trade_engine.start():
+                        progress.setValue(100)
+                        progress.close()
                         self.log_widget.add_message("🚀 Automated trading started", "INFO")
+                        QMessageBox.information(self, "Success", "Trading engine started successfully!")
                     else:
+                        progress.close()
                         QMessageBox.critical(self, "Error", "Failed to start trading engine!")
                 else:
                     self.trade_engine.enable_trading()
+                    progress.setValue(100)
+                    progress.close()
                     self.log_widget.add_message("✅ Automated trading enabled", "INFO")
+            else:
+                progress.close()
 
         except Exception as e:
+            if 'progress' in locals():
+                progress.close()
             self.logger.error(f"❌ Start trading error: {str(e)}")
             QMessageBox.critical(self, "Error", f"Failed to start trading:\n{str(e)}")
 

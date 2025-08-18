@@ -145,6 +145,7 @@ class MT5Client:
             account_info = mt5.account_info()
             if not account_info:
                 self.logger.warning("⚠️ Connection health check failed: No account info")
+                self.connected = False
                 return False
             
             # Check if we can get tick data for a common symbol
@@ -157,12 +158,16 @@ class MT5Client:
                         break
                 else:
                     self.logger.warning("⚠️ Connection health check failed: No tick data available")
+                    self.connected = False
                     return False
             
+            # Update last successful health check time
+            self.last_health_check = datetime.now()
             return True
             
         except Exception as e:
             self.logger.warning(f"⚠️ Connection health check error: {str(e)}")
+            self.connected = False
             return False
     
     def auto_reconnect(self) -> bool:
