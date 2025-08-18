@@ -1,4 +1,3 @@
-
 """
 Risk Management Module.
 Handles position sizing, risk limits, and safety checks.
@@ -111,58 +110,51 @@ class RiskManager:
                         "warnings": warnings
                     }
                 
+                # Check account balance
+                current_balance = account_info.get("balance", 0)
+                if current_balance <= 0:
+                    return {
+                        "allowed": False,
+                        "reason": "Insufficient account balance",
+                        "warnings": warnings
+                    }
+                
+                # Check margin level
+                margin_level = account_info.get("margin_level", 0)
+                if margin_level > 0 and margin_level < 200:  # 200% minimum margin level
+                    return {
+                        "allowed": False,
+                        "reason": f"Margin level too low ({margin_level:.1f}%)",
+                        "warnings": warnings
+                    }
+                
                 # Check daily loss limit
                 current_equity = account_info.get("equity", 0)
-                daily_pnl = current_equity - self.session_start_balance
-                daily_loss_pct = abs(daily_pnl) / self.session_start_balance
-                
-                if daily_pnl < 0 and daily_loss_pct >= self.max_daily_loss:
-                    return {
-                        "allowed": False,
-                        "reason": f"Daily loss limit exceeded ({daily_loss_pct*100:.1f}%)",
-                        "warnings": warnings
-                    }
-                
-                # Check drawdown
-                if current_equity < self.session_max_equity:
-                    drawdown = (self.session_max_equity - current_equity) / self.session_max_equity
-                    if drawdown >= self.max_drawdown:
+                if self.session_start_balance > 0:
+                    daily_loss = (self.session_start_balance - current_equity) / self.session_start_balance
+                    if daily_loss >= self.max_daily_loss:
                         return {
                             "allowed": False,
-                            "reason": f"Maximum drawdown exceeded ({drawdown*100:.1f}%)",
+                            "reason": f"Daily loss limit exceeded ({daily_loss:.1%})",
                             "warnings": warnings
                         }
+                    
+                    # Risk warnings (don't block trade but warn)
+                    if daily_loss >= self.max_daily_loss * 0.7:
+                        warnings.append(f"Approaching daily loss limit ({daily_loss:.1%})")
                 
-                # Check spread
-                max_spread = config.get("risk.max_spread", 2.0)
-                spread = symbol_info.get("spread", 0)
-                if spread > max_spread:
-                    warnings.append(f"High spread detected: {spread} pips")
-                
-                # Check account margin
-                margin_level = account_info.get("margin_level", 0)
-                if margin_level < 200 and margin_level > 0:
-                    warnings.append(f"Low margin level: {margin_level:.1f}%")
-                elif margin_level < 100 and margin_level > 0:
-                    return {
-                        "allowed": False,
-                        "reason": f"Insufficient margin: {margin_level:.1f}%",
-                        "warnings": warnings
-                    }
-                
-                # Check signal confidence
+                # Check signal quality
                 confidence = signal.get("confidence", 0)
-                min_confidence = config.get("strategy.min_confidence", 60.0)
-                if confidence < min_confidence:
-                    return {
-                        "allowed": False,
-                        "reason": f"Signal confidence too low: {confidence:.1f}%",
-                        "warnings": warnings
-                    }
+                if confidence < 50:
+                    warnings.append(f"Low signal confidence ({confidence:.1f}%)")
+                
+                # Position count warning
+                if len(positions) >= self.max_positions * 0.8:
+                    warnings.append(f"High position count ({len(positions)})")
                 
                 return {
                     "allowed": True,
-                    "reason": "Trade validation passed",
+                    "reason": "",
                     "warnings": warnings
                 }
                 
@@ -302,217 +294,3 @@ class RiskManager:
         except Exception as e:
             self.logger.error(f"❌ Emergency stop reset error: {str(e)}")
             return False
-"""
-Risk Management Module.
-Handles position sizing, drawdown protection, and trade validation.
-"""
-
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
-import numpy as np
-
-from core.config import config
-from utils.logging_setup import get_logger
-
-class RiskManager:
-    """Advanced risk management system for trading operations."""
-    
-    def __init__(self):
-        self.logger = get_logger(__name__)
-        
-        # Risk parameters from config
-        self.max_risk_per_trade = config.get("risk.max_risk_per_trade", 0.02)  # 2%
-        self.max_daily_loss = config.get("risk.max_daily_loss", 0.05)  # 5%
-        self.max_drawdown = config.get("risk.max_drawdown", 0.10)  # 10%
-        self.max_positions = config.get("risk.max_positions", 5)
-        self.max_correlation = config.get("risk.max_correlation", 0.7)
-        
-        # Session tracking
-        self.session_start_balance = 0.0
-        self.session_start_time = datetime.now()
-        self.daily_trades = 0
-        self.max_daily_trades = config.get("risk.max_daily_trades", 20)
-        
-        # Risk state
-        self.emergency_stop = False
-        self.risk_warnings = []
-        
-        self.logger.info(f"🛡️ Risk Manager initialized:")
-        self.logger.info(f"   Max risk per trade: {self.max_risk_per_trade:.1%}")
-        self.logger.info(f"   Max daily loss: {self.max_daily_loss:.1%}")
-        self.logger.info(f"   Max drawdown: {self.max_drawdown:.1%}")
-    
-    def initialize_session(self, starting_balance: float) -> None:
-        """Initialize risk management for a new trading session."""
-        try:
-            self.session_start_balance = starting_balance
-            self.session_start_time = datetime.now()
-            self.daily_trades = 0
-            self.emergency_stop = False
-            self.risk_warnings.clear()
-            
-            self.logger.info(f"🛡️ Risk session initialized with balance: ${starting_balance:,.2f}")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Risk session initialization error: {str(e)}")
-    
-    def validate_trade(self, signal: Dict[str, Any], account_info: Dict[str, Any], 
-                      positions: List[Dict[str, Any]], symbol_info: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Validate if a trade should be executed based on risk parameters.
-        
-        Returns:
-            Dict with 'allowed' boolean and 'reason'/'warnings' lists
-        """
-        try:
-            validation_result = {
-                "allowed": True,
-                "reason": "",
-                "warnings": []
-            }
-            
-            # Check emergency stop
-            if self.emergency_stop:
-                validation_result["allowed"] = False
-                validation_result["reason"] = "Emergency stop activated"
-                return validation_result
-            
-            # Check daily trade limit
-            if self.daily_trades >= self.max_daily_trades:
-                validation_result["allowed"] = False
-                validation_result["reason"] = f"Daily trade limit reached ({self.max_daily_trades})"
-                return validation_result
-            
-            # Check maximum positions
-            if len(positions) >= self.max_positions:
-                validation_result["allowed"] = False
-                validation_result["reason"] = f"Maximum positions reached ({self.max_positions})"
-                return validation_result
-            
-            # Check daily loss limit
-            current_equity = account_info.get("equity", 0)
-            daily_loss_pct = (self.session_start_balance - current_equity) / self.session_start_balance
-            
-            if daily_loss_pct >= self.max_daily_loss:
-                validation_result["allowed"] = False
-                validation_result["reason"] = f"Daily loss limit exceeded ({daily_loss_pct:.1%})"
-                return validation_result
-            
-            # Check account balance
-            if account_info.get("balance", 0) <= 0:
-                validation_result["allowed"] = False
-                validation_result["reason"] = "Insufficient account balance"
-                return validation_result
-            
-            # Check margin level
-            margin_level = account_info.get("margin_level", 0)
-            if margin_level > 0 and margin_level < 200:  # 200% minimum margin level
-                validation_result["allowed"] = False
-                validation_result["reason"] = f"Margin level too low ({margin_level:.1f}%)"
-                return validation_result
-            
-            # Risk warnings (don't block trade but log warnings)
-            if daily_loss_pct >= self.max_daily_loss * 0.7:
-                validation_result["warnings"].append(f"Approaching daily loss limit ({daily_loss_pct:.1%})")
-            
-            if len(positions) >= self.max_positions * 0.8:
-                validation_result["warnings"].append(f"High position count ({len(positions)})")
-            
-            # Check signal confidence
-            confidence = signal.get("confidence", 0)
-            if confidence < 60:
-                validation_result["warnings"].append(f"Low signal confidence ({confidence:.1f}%)")
-            
-            return validation_result
-            
-        except Exception as e:
-            self.logger.error(f"❌ Trade validation error: {str(e)}")
-            return {
-                "allowed": False,
-                "reason": f"Validation error: {str(e)}",
-                "warnings": []
-            }
-    
-    def emergency_stop_check(self, account_info: Dict[str, Any]) -> bool:
-        """
-        Check for emergency stop conditions.
-        
-        Returns:
-            True if emergency stop should be triggered
-        """
-        try:
-            current_equity = account_info.get("equity", 0)
-            
-            # Check maximum drawdown
-            if self.session_start_balance > 0:
-                drawdown = (self.session_start_balance - current_equity) / self.session_start_balance
-                
-                if drawdown >= self.max_drawdown:
-                    self.emergency_stop = True
-                    self.logger.critical(f"🚨 EMERGENCY STOP: Max drawdown exceeded ({drawdown:.1%})")
-                    return True
-            
-            # Check margin level
-            margin_level = account_info.get("margin_level", 0)
-            if margin_level > 0 and margin_level < 100:  # 100% emergency margin level
-                self.emergency_stop = True
-                self.logger.critical(f"🚨 EMERGENCY STOP: Critical margin level ({margin_level:.1f}%)")
-                return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"❌ Emergency stop check error: {str(e)}")
-            return False
-    
-    def update_session_stats(self, account_info: Dict[str, Any]) -> None:
-        """Update session statistics for risk monitoring."""
-        try:
-            current_equity = account_info.get("equity", 0)
-            
-            # Update risk warnings
-            if self.session_start_balance > 0:
-                daily_loss_pct = (self.session_start_balance - current_equity) / self.session_start_balance
-                
-                # Add warnings for risk thresholds
-                if daily_loss_pct >= self.max_daily_loss * 0.5:
-                    warning = f"Daily loss at {daily_loss_pct:.1%} (limit: {self.max_daily_loss:.1%})"
-                    if warning not in self.risk_warnings:
-                        self.risk_warnings.append(warning)
-                        self.logger.warning(f"⚠️ Risk warning: {warning}")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Session stats update error: {str(e)}")
-    
-    def on_trade_executed(self, trade_result: Dict[str, Any]) -> None:
-        """Handle post-trade risk tracking."""
-        try:
-            self.daily_trades += 1
-            self.logger.info(f"📊 Trade executed. Daily count: {self.daily_trades}/{self.max_daily_trades}")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Trade tracking error: {str(e)}")
-    
-    def get_risk_report(self) -> Dict[str, Any]:
-        """Generate comprehensive risk report."""
-        try:
-            report = {
-                "emergency_stop": self.emergency_stop,
-                "daily_trades": self.daily_trades,
-                "max_daily_trades": self.max_daily_trades,
-                "session_start_balance": self.session_start_balance,
-                "session_duration_hours": (datetime.now() - self.session_start_time).total_seconds() / 3600,
-                "risk_warnings": self.risk_warnings.copy(),
-                "risk_limits": {
-                    "max_risk_per_trade": self.max_risk_per_trade,
-                    "max_daily_loss": self.max_daily_loss,
-                    "max_drawdown": self.max_drawdown,
-                    "max_positions": self.max_positions
-                }
-            }
-            
-            return report
-            
-        except Exception as e:
-            self.logger.error(f"❌ Risk report error: {str(e)}")
-            return {"error": str(e)}

@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (
     QFrame, QSizePolicy, QApplication
 )
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal, Qt, QSize
+from PyQt5.QtGui import QFont, QColor, QPalette, QPixmap, QPainter, QPen, QIcon
 
 from core.mt5_client import MT5Client
 from core.trade_engine import TradeEngine

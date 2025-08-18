@@ -359,3 +359,65 @@ class ReportingManager:
         except Exception as e:
             self.logger.error(f"❌ Session save error: {str(e)}")
             return False
+
+    def export_report(self, format: str = "csv") -> str:
+        """Export trading report in specified format."""
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            if format.lower() == "csv":
+                # Export trades to CSV
+                filename = f"trading_report_{timestamp}.csv"
+                filepath = os.path.join(self.reports_dir, filename)
+                
+                with open(filepath, 'w', newline='') as csvfile:
+                    if self.trades_log:
+                        fieldnames = self.trades_log[0].keys()
+                        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                        writer.writeheader()
+                        for trade in self.trades_log:
+                            writer.writerow(trade)
+                    else:
+                        # Write headers only if no trades
+                        writer = csv.writer(csvfile)
+                        writer.writerow(['timestamp', 'symbol', 'type', 'volume', 'price', 'profit', 'status'])
+                        
+                self.logger.info(f"📄 Report exported to {filepath}")
+                return filepath
+            
+            elif format.lower() == "json":
+                # Export complete session data to JSON
+                filename = f"session_data_{timestamp}.json"
+                filepath = os.path.join(self.reports_dir, filename)
+                
+                export_data = {
+                    "session_info": {
+                        "start_time": self.session_start_time.isoformat(),
+                        "export_time": datetime.now().isoformat(),
+                        "session_data": self.session_data
+                    },
+                    "trades": self.trades_log,
+                    "equity_curve": self.equity_curve,
+                    "performance_metrics": self.calculate_performance_metrics()
+                }
+                
+                with open(filepath, 'w') as f:
+                    json.dump(export_data, f, indent=2, default=str)
+                
+                self.logger.info(f"📄 Session data exported to {filepath}")
+                return filepath
+            
+            else:
+                raise ValueError(f"Unsupported export format: {format}")
+                
+        except Exception as e:
+            self.logger.error(f"❌ Export error: {str(e)}")
+            return f"Export failed: {str(e)}"
+
+    def get_equity_data(self) -> List[Dict]:
+        """Get equity curve data for chart display."""
+        try:
+            return self.equity_curve
+        except Exception as e:
+            self.logger.error(f"❌ Equity data error: {str(e)}")
+            return []
