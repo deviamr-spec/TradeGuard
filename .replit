@@ -7,7 +7,7 @@ channel = "stable-25_05"
 packages = ["glibcLocales", "libGL", "mesa", "xorg.libX11", "xorg.libXau", "xorg.libXdmcp", "xorg.libxcb", "xorg.xorgserver", "xvfb-run"]
 
 [workflows]
-runButton = "Console Demo"
+runButton = "Run Live Trading Bot"
 
 [[workflows.workflow]]
 name = "Project"
@@ -73,3 +73,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python validate_system.py"
+
+[[workflows.workflow]]
+name = "Run Live Trading Bot"
+author = 46590512
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"

@@ -103,8 +103,10 @@ class AccountInfoWidget(QGroupBox):
             # Calculate profit (equity - balance)
             profit = equity - balance
             profit_color = "green" if profit >= 0 else "red"
-            self.profit_label.setText(f"Profit: ${profit:,.2f}")
-            self.profit_label.setStyleSheet(f"color: {profit_color};")
+            profit_percent = (profit / balance * 100) if balance > 0 else 0.0
+            
+            self.profit_label.setText(f"P&L: ${profit:,.2f} ({profit_percent:+.2f}%)")
+            self.profit_label.setStyleSheet(f"color: {profit_color}; font-weight: bold;")
 
         except Exception as e:
             self.logger.error(f"❌ Account widget update error: {str(e)}")
@@ -116,6 +118,7 @@ class TradingControlWidget(QGroupBox):
         super().__init__("🎮 Trading Controls")
         self.trade_engine = trade_engine
         self.logger = get_logger(__name__)
+        self.auto_trading_enabled = True
         self.init_ui()
 
     def init_ui(self):
@@ -141,6 +144,22 @@ class TradingControlWidget(QGroupBox):
         button_layout.addWidget(self.start_btn)
         button_layout.addWidget(self.stop_btn)
         layout.addLayout(button_layout)
+
+        # Auto-trading toggle
+        auto_layout = QHBoxLayout()
+        
+        self.auto_trading_checkbox = QCheckBox("🤖 Auto Trading")
+        self.auto_trading_checkbox.setChecked(True)
+        self.auto_trading_checkbox.stateChanged.connect(self.toggle_auto_trading)
+        self.auto_trading_checkbox.setStyleSheet("color: #00ff00; font-weight: bold;")
+        
+        self.auto_tpsl_checkbox = QCheckBox("🎯 Auto TP/SL")
+        self.auto_tpsl_checkbox.setChecked(True)
+        self.auto_tpsl_checkbox.setStyleSheet("color: #00ff00; font-weight: bold;")
+        
+        auto_layout.addWidget(self.auto_trading_checkbox)
+        auto_layout.addWidget(self.auto_tpsl_checkbox)
+        layout.addLayout(auto_layout)
 
         # Emergency controls
         emergency_layout = QHBoxLayout()
@@ -207,21 +226,48 @@ class TradingControlWidget(QGroupBox):
         except Exception as e:
             self.logger.error(f"❌ Failed to close positions: {str(e)}")
 
+    def toggle_auto_trading(self, state):
+        """Toggle automatic trading on/off."""
+        try:
+            self.auto_trading_enabled = bool(state)
+            self.trade_engine.trading_enabled = self.auto_trading_enabled
+            
+            status_text = "ENABLED" if self.auto_trading_enabled else "DISABLED"
+            color = "#00ff00" if self.auto_trading_enabled else "#ff0000"
+            
+            self.auto_trading_checkbox.setStyleSheet(f"color: {color}; font-weight: bold;")
+            self.logger.info(f"🤖 Auto-trading {status_text}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to toggle auto-trading: {str(e)}")
+
     def update_data(self):
         """Update trading control status."""
         try:
+            # Update running status
             if self.trade_engine.running:
                 if not self.stop_btn.isEnabled():
                     self.start_btn.setEnabled(False)
                     self.stop_btn.setEnabled(True)
-                    self.status_label.setText("Status: Running")
-                    self.status_label.setStyleSheet("color: green; font-weight: bold; font-size: 12px;")
+                    
+                # Update status based on auto-trading state
+                if getattr(self.trade_engine, 'trading_enabled', False):
+                    self.status_label.setText("Status: AUTO TRADING")
+                    self.status_label.setStyleSheet("color: #00ff00; font-weight: bold; font-size: 12px;")
+                else:
+                    self.status_label.setText("Status: Running (Manual)")
+                    self.status_label.setStyleSheet("color: orange; font-weight: bold; font-size: 12px;")
             else:
                 if not self.start_btn.isEnabled():
                     self.start_btn.setEnabled(True)
                     self.stop_btn.setEnabled(False)
                     self.status_label.setText("Status: Stopped")
                     self.status_label.setStyleSheet("color: red; font-weight: bold; font-size: 12px;")
+
+            # Sync checkbox with actual state
+            actual_auto_state = getattr(self.trade_engine, 'trading_enabled', False)
+            if hasattr(self, 'auto_trading_checkbox') and self.auto_trading_checkbox.isChecked() != actual_auto_state:
+                self.auto_trading_checkbox.setChecked(actual_auto_state)
 
         except Exception as e:
             self.logger.error(f"❌ Trading control update error: {str(e)}")
@@ -449,7 +495,7 @@ class MarketDataWidget(QGroupBox):
         self.setLayout(layout)
 
     def update_data(self):
-        """Update market data table."""
+        """Update market data table with real-time analysis."""
         try:
             if not self.mt5_client.connected:
                 return
@@ -460,8 +506,28 @@ class MarketDataWidget(QGroupBox):
                 tick_data = self.mt5_client.get_tick_data(symbol)
 
                 if tick_data:
-                    # Symbol
-                    self.table.setItem(row, 0, QTableWidgetItem(tick_data["symbol"]))
+                    # Symbol with signal indicator
+                    symbol_item = QTableWidgetItem(tick_data["symbol"])
+                    
+                    # Get current signal analysis (simplified)
+                    try:
+                        # Quick analysis for display purposes
+                        df = self.mt5_client.get_historical_data(symbol, "M1", 50)
+                        if df is not None and len(df) > 20:
+                            from core.strategy.scalping import ScalpingStrategy
+                            strategy = ScalpingStrategy()
+                            signal = strategy.generate_signal(df, symbol)
+                            
+                            if signal.get("signal") == "BUY":
+                                symbol_item.setBackground(QColor(0, 100, 0))  # Dark green
+                                symbol_item.setForeground(QColor(255, 255, 255))
+                            elif signal.get("signal") == "SELL":
+                                symbol_item.setBackground(QColor(100, 0, 0))  # Dark red
+                                symbol_item.setForeground(QColor(255, 255, 255))
+                    except:
+                        pass  # Skip analysis on error
+                    
+                    self.table.setItem(row, 0, symbol_item)
 
                     # Bid
                     bid_item = QTableWidgetItem(f"{tick_data['bid']:.5f}")

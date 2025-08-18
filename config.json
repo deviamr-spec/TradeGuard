@@ -1,4 +1,3 @@
-
 {
     "mt5": {
         "path": "",
@@ -9,33 +8,34 @@
     "trading": {
         "symbols": [
             "EURUSD",
-            "GBPUSD", 
+            "GBPUSD",
             "USDJPY",
+            "AUDUSD",
+            "USDCAD",
             "XAUUSD"
         ],
         "timeframe": "M1",
-        "max_positions": 5,
-        "max_daily_loss": 0.05,
-        "max_drawdown": 0.10
+        "max_positions": 3,
+        "max_daily_loss": 0.03,
+        "max_drawdown": 0.05,
+        "auto_trading_enabled": true,
+        "auto_tp_sl_enabled": true
     },
     "strategy": {
         "ema_fast": 12,
         "ema_slow": 26,
         "rsi_period": 14,
-        "rsi_overbought": 70.0,
-        "rsi_oversold": 30.0,
-        "take_profit_pips": 10.0,
-        "stop_loss_pips": 5.0,
-        "min_confidence": 60.0
-    },
-    "risk_management": {
-        "risk_per_trade": 0.01,
-        "max_spread_pips": 3
+        "rsi_overbought": 75.0,
+        "rsi_oversold": 25.0,
+        "take_profit_pips": 15.0,
+        "stop_loss_pips": 8.0,
+        "min_confidence": 65.0,
+        "signal_cooldown_seconds": 120
     },
     "risk": {
-        "min_lot_size": 0.01,
-        "max_lot_size": 1.0,
-        "risk_per_trade": 0.01
+        "risk_per_trade": 0.015,
+        "max_spread_pips": 2.5,
+        "max_slippage_pips": 3
     },
     "logging": {
         "level": "INFO",

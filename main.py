@@ -80,7 +80,14 @@ class TradingBotApplication:
             try:
                 from core.trade_engine import TradeEngine
                 self.trade_engine = TradeEngine(self.mt5_client)
-                self.logger.info("✅ Trade engine initialized successfully")
+                
+                # Auto-start the trading engine for live trading
+                if self.trade_engine.start():
+                    self.logger.info("✅ Trade engine started and ready for auto-trading")
+                    self.logger.info("🤖 Auto-trading is ENABLED by default")
+                else:
+                    self.logger.error("❌ Failed to start trade engine")
+                    
             except Exception as e:
                 self.logger.error(f"❌ Trade engine initialization failed: {str(e)}")
                 self.logger.info("🔄 Creating basic trade engine for GUI compatibility...")

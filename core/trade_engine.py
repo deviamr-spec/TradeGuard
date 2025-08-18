@@ -54,19 +54,24 @@ class TradeEngine:
 
         # Engine state
         self.running = False
-        self.trading_enabled = False
+        self.trading_enabled = True  # AUTO-ENABLE TRADING BY DEFAULT
         self.engine_thread = None
         self.last_update = datetime.now()
 
         # Trading parameters
-        self.symbols = config.get("trading.symbols", ["EURUSD", "GBPUSD", "USDJPY"])
+        self.symbols = config.get("trading.symbols", ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"])
         self.timeframe = config.get("trading.timeframe", "M1")
-        self.update_interval = 1.0  # seconds
+        self.update_interval = 2.0  # Increase to 2 seconds for better stability
 
         # Position tracking
         self.active_positions = {}
         self.pending_signals = {}
         self.last_signal_time = {}
+
+        # Auto-trading configuration
+        self.auto_tp_sl_enabled = True
+        self.auto_order_enabled = True
+        self.signal_confidence_threshold = 65.0  # Minimum confidence for auto trading
 
         # Thread safety
         self.trade_lock = threading.Lock()
@@ -75,6 +80,8 @@ class TradeEngine:
         self.logger.info(f"   Symbols: {self.symbols}")
         self.logger.info(f"   Timeframe: {self.timeframe}")
         self.logger.info(f"   Update interval: {self.update_interval}s")
+        self.logger.info(f"   Auto-trading: {'ENABLED' if self.trading_enabled else 'DISABLED'}")
+        self.logger.info(f"   Auto TP/SL: {'ENABLED' if self.auto_tp_sl_enabled else 'DISABLED'}")
 
     def start(self) -> bool:
         """
@@ -230,9 +237,12 @@ class TradeEngine:
 
                     self.last_signal_time[symbol] = datetime.now()
 
-                    # Process signal if valid
-                    if signal["signal"] in ["BUY", "SELL"]:
+                    # Process signal if valid and meets confidence threshold
+                    if signal["signal"] in ["BUY", "SELL"] and signal.get("confidence", 0) >= self.signal_confidence_threshold:
+                        self.logger.info(f"🎯 Strong signal detected: {symbol} {signal['signal']} (Confidence: {signal['confidence']:.1f}%)")
                         self._execute_signal(signal, account_info, current_positions)
+                    elif signal["signal"] in ["BUY", "SELL"]:
+                        self.logger.debug(f"⚠️ Signal below threshold: {symbol} {signal['signal']} (Confidence: {signal['confidence']:.1f}% < {self.signal_confidence_threshold}%)")
 
                 except Exception as e:
                     self.logger.error(f"❌ Signal processing error for {symbol}: {str(e)}")
