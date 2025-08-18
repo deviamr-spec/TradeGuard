@@ -78,22 +78,30 @@ class TradingBotApplication:
             # Initialize trade engine
             self.logger.info("⚙️ Initializing trade engine...")
             try:
-                from core.trade_engine import TradeEngine as TradeEngineClass
-                self.trade_engine = TradeEngineClass(self.mt5_client)
+                from core.trade_engine import TradeEngine
+                self.trade_engine = TradeEngine(self.mt5_client)
                 self.logger.info("✅ Trade engine initialized successfully")
             except Exception as e:
                 self.logger.error(f"❌ Trade engine initialization failed: {str(e)}")
                 self.logger.info("🔄 Creating basic trade engine for GUI compatibility...")
                 # Create a minimal trade engine for GUI compatibility
-                from core.trade_engine import TradeEngine as TradeEngineClass
-                self.trade_engine = TradeEngineClass(self.mt5_client)
-                # Ensure all required attributes exist
-                if not hasattr(self.trade_engine, 'symbols'):
-                    self.trade_engine.symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"]
-                if not hasattr(self.trade_engine, 'running'):
-                    self.trade_engine.running = False
-                if not hasattr(self.trade_engine, 'trading_enabled'):
+                from core.trade_engine import TradeEngine
+                self.trade_engine = TradeEngine(self.mt5_client)
+                
+            # Ensure all required attributes exist
+            if not hasattr(self.trade_engine, 'symbols'):
+                self.trade_engine.symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"]
+            if not hasattr(self.trade_engine, 'running'):
+                self.trade_engine.running = False
+            if not hasattr(self.trade_engine, 'trading_enabled'):
+                self.trade_engine.trading_enabled = False
+            if not hasattr(self.trade_engine, 'emergency_stop'):
+                def emergency_stop():
                     self.trade_engine.trading_enabled = False
+                    self.trade_engine.running = False
+                    if hasattr(self.trade_engine, '_emergency_close_all_positions'):
+                        self.trade_engine._emergency_close_all_positions()
+                self.trade_engine.emergency_stop = emergency_stop
             
             # Initialize main GUI window
             self.logger.info("🖥️ Launching GUI...")

@@ -325,7 +325,7 @@ class TradeEngine:
                 if result:
                     # Get order/ticket from result
                     order_ticket = result.get("ticket", result.get("order", 0))
-                    
+
                     # Log successful trade
                     trade_data = {
                         "symbol": actual_symbol,

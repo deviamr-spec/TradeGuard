@@ -63,7 +63,28 @@ class RiskManager:
         self.session_start_time = datetime.now()
         self.last_trade_reset = datetime.now().date()
 
+        # Initialize daily tracking
+        if self.daily_start_balance == 0.0:
+            self.daily_start_balance = 10000.0  # Default demo balance
+        if self.session_start_balance == 0.0:
+            self.session_start_balance = self.daily_start_balance
+
         self.logger.info("✅ Risk Manager initialized")
+
+    def update_margin_usage(self, account_info: Dict[str, Any]) -> None:
+        """Update margin usage percentage."""
+        try:
+            equity = account_info.get('equity', 0.0)
+            margin = account_info.get('margin', 0.0)
+            
+            if equity > 0:
+                self.margin_usage_percent = (margin / equity) * 100
+            else:
+                self.margin_usage_percent = 0.0
+                
+        except Exception as e:
+            self.logger.error(f"❌ Margin usage update error: {str(e)}")
+            self.margin_usage_percent = 0.0
 
     def _calculate_risk_score(self) -> float:
         """Calculate overall risk score (0-100)."""

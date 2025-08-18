@@ -260,27 +260,31 @@ class RiskMonitorWidget(QGroupBox):
     def update_data(self):
         """Update risk monitoring data."""
         try:
-            # Get risk metrics
+            if not self.risk_manager:
+                self.risk_status_label.setText("Status: No Risk Manager")
+                return
+                
+            # Get risk metrics safely
             metrics = self.risk_manager.get_risk_metrics()
 
             daily_loss = metrics.get('daily_loss', 0.0)
-            daily_loss_pct = metrics.get('daily_loss_percentage', 0.0)
-            max_drawdown = metrics.get('max_drawdown_percentage', 0.0)
-            position_count = metrics.get('position_count', 0)
+            daily_loss_pct = abs(self.risk_manager.daily_pnl / self.risk_manager.daily_start_balance * 100) if self.risk_manager.daily_start_balance > 0 else 0.0
+            max_drawdown_pct = self.risk_manager.current_drawdown * 100
+            position_count = len(getattr(self.risk_manager, 'open_positions', []))
             max_positions = self.risk_manager.max_positions
             risk_per_trade = self.risk_manager.risk_per_trade * 100
 
             # Update labels
             self.daily_loss_label.setText(f"Daily Loss: ${daily_loss:.2f} ({daily_loss_pct:.1f}%)")
-            self.max_drawdown_label.setText(f"Max Drawdown: {max_drawdown:.1f}%")
+            self.max_drawdown_label.setText(f"Max Drawdown: {max_drawdown_pct:.1f}%")
             self.position_count_label.setText(f"Positions: {position_count}/{max_positions}")
             self.risk_per_trade_label.setText(f"Risk per Trade: {risk_per_trade:.1f}%")
 
             # Update risk status
-            if daily_loss_pct > 3.0 or max_drawdown > 7.0:
+            if daily_loss_pct > 3.0 or max_drawdown_pct > 7.0:
                 self.risk_status_label.setText("Status: High Risk")
                 self.risk_status_label.setStyleSheet("color: red; font-weight: bold;")
-            elif daily_loss_pct > 1.5 or max_drawdown > 3.0:
+            elif daily_loss_pct > 1.5 or max_drawdown_pct > 3.0:
                 self.risk_status_label.setText("Status: Moderate Risk")
                 self.risk_status_label.setStyleSheet("color: orange; font-weight: bold;")
             else:
@@ -289,6 +293,49 @@ class RiskMonitorWidget(QGroupBox):
 
         except Exception as e:
             self.logger.error(f"❌ Risk monitor update error: {str(e)}")
+            # Set default values on error
+            self.risk_status_label.setText("Status: Error")
+            self.daily_loss_label.setText("Daily Loss: $0.00 (0%)")
+            self.max_drawdown_label.setText("Max Drawdown: 0%")
+            self.position_count_label.setText("Positions: 0/0")
+            self.risk_per_trade_label.setText("Risk per Trade: 0%")
+
+    def update_risk_metrics(self, risk_metrics: Dict[str, Any]):
+        """Update risk display with provided metrics."""
+        try:
+            if not risk_metrics:
+                return
+                
+            daily_loss = risk_metrics.get('daily_loss', 0.0)
+            daily_loss_pct = risk_metrics.get('daily_loss_percentage', 0.0)
+            max_drawdown_pct = risk_metrics.get('current_drawdown', 0.0) * 100
+            position_count = risk_metrics.get('position_count', 0)
+            max_positions = risk_metrics.get('max_positions', 5)
+            risk_per_trade = risk_metrics.get('risk_per_trade', 1.0)
+
+            # Update labels
+            self.daily_loss_label.setText(f"Daily Loss: ${daily_loss:.2f} ({daily_loss_pct:.1f}%)")
+            self.max_drawdown_label.setText(f"Max Drawdown: {max_drawdown_pct:.1f}%")
+            self.position_count_label.setText(f"Positions: {position_count}/{max_positions}")
+            self.risk_per_trade_label.setText(f"Risk per Trade: {risk_per_trade:.1f}%")
+
+            # Update risk status
+            emergency_stop = risk_metrics.get('emergency_stop', False)
+            if emergency_stop:
+                self.risk_status_label.setText("Status: EMERGENCY STOP")
+                self.risk_status_label.setStyleSheet("color: red; font-weight: bold; background-color: yellow;")
+            elif daily_loss_pct > 3.0 or max_drawdown_pct > 7.0:
+                self.risk_status_label.setText("Status: High Risk")
+                self.risk_status_label.setStyleSheet("color: red; font-weight: bold;")
+            elif daily_loss_pct > 1.5 or max_drawdown_pct > 3.0:
+                self.risk_status_label.setText("Status: Moderate Risk")
+                self.risk_status_label.setStyleSheet("color: orange; font-weight: bold;")
+            else:
+                self.risk_status_label.setText("Status: Normal")
+                self.risk_status_label.setStyleSheet("color: green; font-weight: bold;")
+
+        except Exception as e:
+            self.logger.error(f"❌ Risk metrics update error: {str(e)}")
 
 class PerformanceMonitorWidget(QGroupBox):
     """Widget for performance monitoring."""
@@ -323,8 +370,19 @@ class PerformanceMonitorWidget(QGroupBox):
     def update_data(self):
         """Update performance monitoring data."""
         try:
-            # Get performance metrics from reporting manager
-            metrics = self.trade_engine.reporting.get_performance_metrics()
+            # Get performance metrics from reporting manager safely
+            if hasattr(self.trade_engine, 'reporting'):
+                metrics = self.trade_engine.reporting.get_performance_metrics()
+            else:
+                # Fallback metrics
+                metrics = {
+                    'total_trades': 0,
+                    'win_rate': 0.0,
+                    'total_profit': 0.0,
+                    'best_trade': 0.0,
+                    'worst_trade': 0.0,
+                    'average_trade': 0.0
+                }
 
             total_trades = metrics.get('total_trades', 0)
             win_rate = metrics.get('win_rate', 0.0)
@@ -353,6 +411,13 @@ class PerformanceMonitorWidget(QGroupBox):
 
         except Exception as e:
             self.logger.error(f"❌ Performance monitor update error: {str(e)}")
+            # Set default values on error
+            self.total_trades_label.setText("Total Trades: 0")
+            self.win_rate_label.setText("Win Rate: 0%")
+            self.total_profit_label.setText("Total Profit: $0.00")
+            self.best_trade_label.setText("Best Trade: $0.00")
+            self.worst_trade_label.setText("Worst Trade: $0.00")
+            self.avg_trade_label.setText("Avg Trade: $0.00")
 
 class MarketDataWidget(QGroupBox):
     """Widget for displaying market data."""
