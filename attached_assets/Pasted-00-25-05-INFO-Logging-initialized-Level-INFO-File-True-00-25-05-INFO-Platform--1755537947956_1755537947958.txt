@@ -1,0 +1,119 @@
+00:25:05 | INFO | 🔧 Logging initialized - Level: INFO, File: True
+00:25:05 | INFO | 🖥️ Platform: win32
+00:25:05 | INFO | 🐍 Python: 3.13.5
+00:25:05 | INFO | 📂 Working Directory: C:\Users\pras\Desktop\topred1\TradeGuard
+00:25:05 | INFO | 🚀 Starting MT5 Trading Bot...
+00:25:05 | INFO | 🔍 Running startup diagnostics...
+00:25:05 | INFO | 🔍 Running startup diagnostics...
+00:25:05 | INFO | 🔍 Starting system diagnostics...
+00:25:05 | INFO | 🔄 Running check 1/10: System Info
+00:25:05 | INFO | ✅ System Info: PASSED
+00:25:05 | INFO | 🔄 Running check 2/10: Python Environment
+00:25:05 | INFO | ✅ Python Environment: PASSED
+00:25:05 | INFO | 🔄 Running check 3/10: Dependencies
+00:25:05 | ERROR | ❌ Dependencies: FAILED - Missing required packages: MetaTrader5
+00:25:05 | INFO | 🔄 Running check 4/10: MT5 Installation
+00:25:06 | INFO | ✅ MT5 Installation: PASSED
+00:25:06 | INFO | 🔄 Running check 5/10: Network Connectivity
+00:25:17 | WARNING | ⚠️ Network Connectivity: WARNING - Partial network connectivity
+00:25:17 | INFO | 🔄 Running check 6/10: Disk Space
+00:25:17 | INFO | ✅ Disk Space: PASSED
+00:25:17 | INFO | 🔄 Running check 7/10: Memory
+00:25:17 | INFO | ✅ Memory: PASSED
+00:25:17 | INFO | 🔄 Running check 8/10: Permissions
+00:25:17 | INFO | ✅ Permissions: PASSED
+00:25:17 | INFO | 🔄 Running check 9/10: MT5 Process
+00:25:17 | INFO | ✅ MT5 Process: PASSED
+00:25:17 | INFO | 🔄 Running check 10/10: Trading Account
+00:25:18 | INFO | ✅ Trading Account: PASSED
+00:25:18 | INFO | 🏁 Diagnostics completed in 12.12s
+00:25:18 | INFO | 📊 Health Score: 80.0% (8/10 checks passed)
+00:25:18 | INFO | ✅ System healthy (Score: 80.0%)
+00:25:18 | INFO | 🚀 All systems ready for trading
+00:25:18 | INFO | 🔌 Connecting to MetaTrader 5...
+00:25:18 | INFO | 🔄 Connection attempt 1/3
+00:25:18 | INFO | 🔌 Connecting to MetaTrader 5...
+00:25:18 | INFO | ✅ MT5 connected using simple method
+00:25:18 | INFO | 📊 Account: 257036670
+00:25:18 | INFO | 💰 Balance: $7.79
+00:25:18 | INFO | 📈 Equity: $7.79
+00:25:18 | INFO | 🏦 Server: Exness-MT5Real36
+00:25:18 | INFO | ✅ Trading is allowed
+00:25:18 | INFO | ✅ MT5 client connected successfully (attempt 1)
+00:25:18 | INFO | ⚙️ Initializing trade engine...
+00:25:18 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+00:25:18 | INFO | 🛡️ Risk Manager initialized:
+00:25:18 | INFO |    Risk per trade: 1.0%
+00:25:18 | INFO |    Max daily loss: 5.0%
+00:25:18 | INFO |    Max drawdown: 10.0%
+00:25:18 | INFO |    Max positions: 5
+00:25:18 | INFO | 📊 Reporting Manager initialized
+00:25:18 | INFO | ⚙️ Trade Engine initialized:
+00:25:18 | INFO |    Symbols: ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD']
+00:25:18 | INFO |    Timeframe: M1
+00:25:18 | INFO |    Update interval: 1.0s
+00:25:18 | INFO | 🖥️ Launching GUI...
+00:25:18 | ERROR | ❌ Right panel creation error: 'QTextEdit' object has no attribute 'setMaximumBlockCount'
+00:25:18 | INFO | ✅ GUI layout initialized
+00:25:18 | INFO | 🖥️ Main GUI window initialized
+00:25:18 | INFO | ✅ Trading bot initialized successfully
+00:25:18 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:18 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:19 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:20 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:21 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:22 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:23 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:23 | ERROR | ❌ Account info error: 'AccountInfo' object has no attribute 'free_margin'
+00:25:23 | WARNING | ⚠️ Connection health check failed: No tick data available
+00:25:23 | ERROR | Reconnection attempt error: 'MT5Client' object has no attribute 'auto_reconnect'
+00:25:25 | INFO | 🎯 LIVE TRADING BOT is now running...
+00:25:28 | ERROR | Reconnection attempt error: 'MT5Client' object has no attribute 'auto_reconnect'
+00:25:33 | ERROR | Reconnection attempt error: 'MT5Client' object has no attribute 'auto_reconnect'
+00:25:36 | INFO | 🔄 Closing application...
+00:25:36 | INFO | 🔄 Shutting down trading bot...
+00:25:36 | INFO | 🛑 Stopping trade engine...
+00:25:36 | WARNING | 🚨 Emergency closing all positions...
+00:25:36 | INFO | ✅ Trade engine stopped
+00:25:37 | INFO | 🔄 Closing application...
+00:25:37 | INFO | ✅ Trading bot shutdown complete

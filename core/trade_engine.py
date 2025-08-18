@@ -147,7 +147,7 @@ class TradeEngine:
                     loop_start = time.time()
                     
                     # Monitor connection health
-                    connection_status = self.mt5_client.monitor_connection()
+                    connection_status = self.mt5_client.monitor_connection() if hasattr(self.mt5_client, 'monitor_connection') else {"connected": self.mt5_client.connected}
                     if not connection_status["healthy"]:
                         self.logger.warning("⚠️ MT5 connection unhealthy, attempting reconnection...")
                         if self.mt5_client.auto_reconnect():
@@ -305,7 +305,15 @@ class TradeEngine:
                 retry_count = 3
                 
                 for attempt in range(retry_count):
-                    result = self.mt5_client.place_order(order_request)
+                    result = self.mt5_client.place_order(
+                        symbol=actual_symbol,
+                        order_type=signal["signal"],
+                        volume=lot_size,
+                        price=current_price,
+                        sl=stop_loss if stop_loss > 0 else None,
+                        tp=take_profit if take_profit > 0 else None,
+                        comment=f"AutoBot {signal['signal']} C:{signal['confidence']:.0f}%"
+                    )
                     if result:
                         break
                     elif attempt < retry_count - 1:
@@ -370,7 +378,10 @@ class TradeEngine:
                     closed_orders.append(order_id)
                     
                     # Try to get trade history to update outcome
-                    history = self.mt5_client.get_trade_history(days=1)
+                    from datetime import datetime, timedelta
+                    end_date = datetime.now()
+                    start_date = end_date - timedelta(days=1)
+                    history = self.mt5_client.get_trade_history(start_date, end_date)
                     for trade in history:
                         if trade["order"] == order_id:
                             outcome_data = {

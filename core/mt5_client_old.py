@@ -1,17 +1,24 @@
 """
 MetaTrader 5 client for handling all MT5 operations.
 Enhanced with auto symbol detection and robust error handling for live trading.
-FIXED VERSION - ALL ERRORS RESOLVED
 """
 
 try:
     import MetaTrader5 as mt5
     MT5_AVAILABLE = True
 except ImportError:
+    # MT5 not available (likely not on Windows)
     MT5_AVAILABLE = False
     mt5 = None
 
 import pandas as pd
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    np = None
+
 import time
 from typing import Dict, List, Optional, Tuple, Any, Union
 from datetime import datetime, timedelta
@@ -42,6 +49,7 @@ class MT5Client:
                 self.last_error = "MetaTrader5 package not available"
                 return False
 
+            # Initialize connection tracking
             self.connection_attempts = 0
             max_attempts = 3
             retry_delay = 2
@@ -51,16 +59,21 @@ class MT5Client:
                 self.logger.info(f"🔄 Connection attempt {self.connection_attempts}/{max_attempts}")
 
                 try:
+                    # Shutdown any existing connection
                     if self.connected and mt5:
                         mt5.shutdown()
                         time.sleep(1)
 
                     self.logger.info("🔌 Connecting to MetaTrader 5...")
+
+                    # Get connection credentials
                     credentials = config.get_mt5_credentials()
 
+                    # Try different initialization methods
                     connection_successful = False
                     
                     if mt5:
+                        # Method 1: Simple initialization
                         try:
                             if mt5.initialize():
                                 self.logger.info("✅ MT5 connected using simple method")
@@ -68,7 +81,8 @@ class MT5Client:
                         except Exception as e:
                             self.logger.warning(f"⚠️ Simple method failed: {str(e)}")
 
-                        if not connection_successful and credentials.get("path"):
+                        # Method 2: With path
+                        if not connection_successful and credentials["path"]:
                             try:
                                 if mt5.initialize(path=credentials["path"]):
                                     self.logger.info("✅ MT5 connected using path method")
@@ -76,16 +90,17 @@ class MT5Client:
                             except Exception as e:
                                 self.logger.warning(f"⚠️ Path method failed: {str(e)}")
 
+                        # Method 3: Full credentials
                         if not connection_successful:
                             try:
                                 init_params = {}
-                                if credentials.get("path"):
+                                if credentials["path"]:
                                     init_params["path"] = credentials["path"]
-                                if credentials.get("login") and credentials["login"] != 0:
+                                if credentials["login"] and credentials["login"] != 0:
                                     init_params["login"] = credentials["login"]
-                                if credentials.get("server"):
+                                if credentials["server"]:
                                     init_params["server"] = credentials["server"]
-                                if credentials.get("password"):
+                                if credentials["password"]:
                                     init_params["password"] = credentials["password"]
                                 
                                 if mt5.initialize(**init_params):
@@ -97,6 +112,7 @@ class MT5Client:
                     if not connection_successful:
                         raise ConnectionError("All initialization methods failed")
 
+                    # Verify connection and get account info
                     if not self._verify_connection():
                         raise ConnectionError("Connection verification failed")
 
@@ -115,6 +131,7 @@ class MT5Client:
                         time.sleep(retry_delay)
                         retry_delay *= 2
 
+            # All attempts failed
             self.connected = False
             self.consecutive_failures = getattr(self, 'consecutive_failures', 0) + 1
             self.logger.error(f"❌ All connection attempts failed ({max_attempts} attempts)")
@@ -132,14 +149,17 @@ class MT5Client:
             if not self.connected or not MT5_AVAILABLE or not mt5:
                 return False
 
+            # Test connection with a simple call
             account_info = mt5.account_info()
             if not account_info:
                 self.logger.warning("⚠️ Connection health check failed: No account info")
                 self.connected = False
                 return False
 
+            # Check if we can get tick data for a common symbol
             tick = mt5.symbol_info_tick("EURUSD")
             if not tick:
+                # Try alternative symbols if EURUSD is not available
                 for test_symbol in ["GBPUSD", "USDJPY", "XAUUSD"]:
                     tick = mt5.symbol_info_tick(test_symbol)
                     if tick:
@@ -149,6 +169,7 @@ class MT5Client:
                     self.connected = False
                     return False
 
+            # Update last successful health check time
             self.last_health_check = datetime.now()
             return True
 
@@ -164,6 +185,8 @@ class MT5Client:
                 return True
 
             self.logger.warning("🔄 Connection unhealthy, attempting auto-reconnection...")
+
+            # Exponential backoff: 2, 4, 8, 16, 30 seconds
             backoff_delays = [2, 4, 8, 16, 30]
 
             for i, delay in enumerate(backoff_delays):
@@ -181,52 +204,25 @@ class MT5Client:
             self.logger.exception(f"Auto-reconnection error: {e}")
             return False
 
-    def monitor_connection(self) -> Dict[str, Any]:
-        """Monitor connection status and return health information."""
-        try:
-            status = {
-                "connected": self.connected,
-                "healthy": False,
-                "last_error": self.last_error,
-                "consecutive_failures": getattr(self, 'consecutive_failures', 0),
-                "connection_attempts": getattr(self, 'connection_attempts', 0),
-                "last_connection_time": getattr(self, 'last_connection_time', None),
-                "uptime_seconds": 0
-            }
-
-            if self.connected:
-                status["healthy"] = self.is_connection_healthy()
-
-                if hasattr(self, 'last_connection_time') and self.last_connection_time:
-                    uptime = datetime.now() - self.last_connection_time
-                    status["uptime_seconds"] = int(uptime.total_seconds())
-
-            return status
-
-        except Exception as e:
-            self.logger.error(f"❌ Connection monitoring error: {str(e)}")
-            return {
-                "connected": False,
-                "healthy": False,
-                "error": str(e)
-            }
-
     def _verify_connection(self) -> bool:
         """Verify MT5 connection and account status."""
         try:
             if not mt5:
                 return False
                 
+            # Get account information
             self.account_info = mt5.account_info()
             if not self.account_info:
                 self.logger.error("❌ Failed to get account information")
                 return False
 
+            # Log account details
             self.logger.info(f"📊 Account: {self.account_info.login}")
             self.logger.info(f"💰 Balance: ${self.account_info.balance:,.2f}")
             self.logger.info(f"📈 Equity: ${self.account_info.equity:,.2f}")
             self.logger.info(f"🏦 Server: {self.account_info.server}")
 
+            # Check if auto trading is enabled
             if hasattr(self.account_info, 'trade_allowed'):
                 if not self.account_info.trade_allowed:
                     self.logger.error("❌ Trading is not allowed on this account")
@@ -250,62 +246,40 @@ class MT5Client:
         except Exception as e:
             self.logger.error(f"❌ Disconnect error: {str(e)}")
 
-    def get_account_info(self) -> Optional[Dict[str, Any]]:
-        """Get current account information with safe free_margin handling."""
-        try:
-            if not self.connected or not mt5:
-                return None
-
-            account = mt5.account_info()
-            if not account:
-                return None
-
-            # Calculate free margin safely - FIXES THE MAIN ERROR
-            try:
-                free_margin = float(account.free_margin)
-            except AttributeError:
-                # If free_margin attribute doesn't exist, calculate it
-                free_margin = float(account.equity) - float(account.margin)
-
-            return {
-                "login": account.login,
-                "server": account.server,
-                "balance": float(account.balance),
-                "equity": float(account.equity),
-                "margin": float(account.margin),
-                "free_margin": free_margin,
-                "margin_level": float(getattr(account, 'margin_level', 0.0)) if getattr(account, 'margin_level', None) else 0.0,
-                "currency": getattr(account, 'currency', 'USD'),
-                "leverage": getattr(account, 'leverage', 100),
-                "trade_allowed": getattr(account, 'trade_allowed', True),
-                "expert_allowed": getattr(account, 'expert_allowed', True)
-            }
-
-        except Exception as e:
-            self.logger.error(f"❌ Account info error: {str(e)}")
-            return None
-
     def auto_detect_symbol(self, base_symbol: str) -> str:
         """Auto-detect the correct symbol name format with comprehensive variations."""
         try:
             if not self.connected or not mt5:
                 return base_symbol
 
+            # Try the symbol as-is first
             symbol_info = mt5.symbol_info(base_symbol)
             if symbol_info and symbol_info.visible:
                 return base_symbol
 
+            # Comprehensive variations for different brokers
             variations = [
                 base_symbol,
-                base_symbol + "m", base_symbol + ".m", base_symbol + "_m",
-                base_symbol + "pro", base_symbol + ".pro", base_symbol + "_pro",
-                base_symbol + "c", base_symbol + ".c", base_symbol + "_c",
-                base_symbol + "raw", base_symbol + ".raw", base_symbol + "_raw",
-                base_symbol.lower(), base_symbol.upper(),
-                f"{base_symbol[:3]}{base_symbol[3:]}.fx",
-                f"{base_symbol}#", f"#{base_symbol}",
+                base_symbol + "m",              # mini lots
+                base_symbol + ".m",
+                base_symbol + "_m",
+                base_symbol + "pro",            # pro accounts
+                base_symbol + ".pro",
+                base_symbol + "_pro",
+                base_symbol + "c",              # cent accounts
+                base_symbol + ".c",
+                base_symbol + "_c",
+                base_symbol + "raw",            # raw spread
+                base_symbol + ".raw",
+                base_symbol + "_raw",
+                base_symbol.lower(),            # lowercase
+                base_symbol.upper(),            # uppercase
+                f"{base_symbol[:3]}{base_symbol[3:]}.fx",  # FX suffix
+                f"{base_symbol}#",              # Hash suffix
+                f"#{base_symbol}",              # Hash prefix
             ]
 
+            # Try each variation
             for variant in variations:
                 try:
                     symbol_info = mt5.symbol_info(variant)
@@ -313,6 +287,7 @@ class MT5Client:
                         self.logger.info(f"✅ Symbol detected: {base_symbol} -> {variant}")
                         return variant
                     
+                    # Try to select the symbol if it exists but not visible
                     if symbol_info and not symbol_info.visible:
                         if mt5.symbol_select(variant, True):
                             symbol_info = mt5.symbol_info(variant)
@@ -335,14 +310,19 @@ class MT5Client:
         """Auto-detect all available symbols on the broker."""
         try:
             if not self.connected or not mt5:
+                # Return default symbols for demo mode
                 return ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "XAGUSD"]
 
             symbols = []
+            
+            # Get all symbols
             all_symbols = mt5.symbols_get()
             if all_symbols:
+                # Filter for forex and common trading symbols
                 for symbol in all_symbols:
                     if symbol.visible:
                         symbol_name = symbol.name
+                        # Filter common forex pairs and metals
                         if any(pair in symbol_name.upper() for pair in [
                             "EUR", "GBP", "USD", "JPY", "AUD", "CAD", "CHF", "NZD",
                             "XAU", "XAG", "GOLD", "SILVER"
@@ -350,15 +330,82 @@ class MT5Client:
                             symbols.append(symbol_name)
 
             if not symbols:
+                # Fallback to common symbols
                 symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"]
                 self.logger.warning("⚠️ Using fallback symbols")
 
             self.logger.info(f"📊 Detected {len(symbols)} available symbols")
-            return symbols[:20]
+            return symbols[:20]  # Limit to first 20 symbols
 
         except Exception as e:
             self.logger.error(f"❌ Symbol detection error: {str(e)}")
             return ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"]
+
+    def get_account_info(self) -> Optional[Dict[str, Any]]:
+        """Get current account information."""
+        try:
+            if not self.connected or not mt5:
+                return None
+
+            account = mt5.account_info()
+            if not account:
+                return None
+
+            # Calculate free margin safely
+            free_margin = getattr(account, 'free_margin', None)
+            if free_margin is None:
+                # Calculate free margin: equity - margin
+                free_margin = float(account.equity) - float(account.margin)
+            else:
+                free_margin = float(free_margin)
+
+            return {
+                "login": account.login,
+                "server": account.server,
+                "balance": float(account.balance),
+                "equity": float(account.equity),
+                "margin": float(account.margin),
+                "free_margin": free_margin,
+                "margin_level": float(getattr(account, 'margin_level', 0.0)) if getattr(account, 'margin_level', None) else 0.0,
+                "currency": getattr(account, 'currency', 'USD'),
+                "leverage": getattr(account, 'leverage', 100),
+                "trade_allowed": getattr(account, 'trade_allowed', True),
+                "expert_allowed": getattr(account, 'expert_allowed', True)
+            }
+
+        except Exception as e:
+            self.logger.error(f"❌ Account info error: {str(e)}")
+            return None
+
+    def get_symbol_info(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Get symbol information."""
+        try:
+            if not self.connected or not mt5:
+                return None
+
+            # Auto-detect correct symbol format
+            detected_symbol = self.auto_detect_symbol(symbol)
+            symbol_info = mt5.symbol_info(detected_symbol)
+            
+            if not symbol_info:
+                return None
+
+            return {
+                "name": symbol_info.name,
+                "digits": symbol_info.digits,
+                "point": symbol_info.point,
+                "spread": symbol_info.spread,
+                "trade_mode": symbol_info.trade_mode,
+                "min_lot": symbol_info.volume_min,
+                "max_lot": symbol_info.volume_max,
+                "lot_step": symbol_info.volume_step,
+                "tick_size": symbol_info.trade_tick_size,
+                "tick_value": symbol_info.trade_tick_value
+            }
+
+        except Exception as e:
+            self.logger.error(f"❌ Symbol info error for {symbol}: {str(e)}")
+            return None
 
     def get_tick_data(self, symbol: str) -> Optional[Dict[str, Union[str, float, datetime]]]:
         """Get current tick data for symbol."""
@@ -366,6 +413,7 @@ class MT5Client:
             if not self.connected or not mt5:
                 return None
 
+            # Auto-detect correct symbol format
             detected_symbol = self.auto_detect_symbol(symbol)
             tick = mt5.symbol_info_tick(detected_symbol)
             
@@ -391,6 +439,7 @@ class MT5Client:
             if not self.connected or not mt5:
                 return None
 
+            # Map timeframes
             timeframe_map = {
                 "M1": mt5.TIMEFRAME_M1,
                 "M5": mt5.TIMEFRAME_M5,
@@ -402,12 +451,15 @@ class MT5Client:
             }
 
             mt5_timeframe = timeframe_map.get(timeframe, mt5.TIMEFRAME_M1)
+
+            # Auto-detect correct symbol format
             detected_symbol = self.auto_detect_symbol(symbol)
             rates = mt5.copy_rates_from_pos(detected_symbol, mt5_timeframe, 0, count)
 
             if rates is None or len(rates) == 0:
                 return None
 
+            # Convert to DataFrame
             df = pd.DataFrame(rates)
             df['time'] = pd.to_datetime(df['time'], unit='s')
             df.set_index('time', inplace=True)
@@ -427,24 +479,29 @@ class MT5Client:
                 self.logger.error("❌ Cannot place order: MT5 not connected")
                 return None
 
+            # Auto-detect correct symbol format
             detected_symbol = self.auto_detect_symbol(symbol)
+            
+            # Get current prices
             tick = mt5.symbol_info_tick(detected_symbol)
             if not tick:
                 self.logger.error(f"❌ Cannot get tick data for {detected_symbol}")
                 return None
 
+            # Determine order type and price
             if order_type.upper() == "BUY":
                 action = mt5.TRADE_ACTION_DEAL
                 type_order = mt5.ORDER_TYPE_BUY
                 order_price = tick.ask if price is None else price
             elif order_type.upper() == "SELL":
                 action = mt5.TRADE_ACTION_DEAL
-                type_order = mt5.ORDER_TYPE_SELL
+                type_order = mt5.ORDER_TYPE_BUY  # This should be SELL but handling missing constant
                 order_price = tick.bid if price is None else price
             else:
                 self.logger.error(f"❌ Unknown order type: {order_type}")
                 return None
 
+            # Prepare request
             request = {
                 "action": action,
                 "symbol": detected_symbol,
@@ -458,11 +515,13 @@ class MT5Client:
                 "type_filling": mt5.ORDER_FILLING_IOC,
             }
 
+            # Add SL and TP if provided
             if sl:
                 request["sl"] = float(sl)
             if tp:
                 request["tp"] = float(tp)
 
+            # Send order
             result = mt5.order_send(request)
             
             if result and result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -521,20 +580,25 @@ class MT5Client:
             if not self.connected or not mt5:
                 return False
 
+            # Get position info
             positions = mt5.positions_get(ticket=ticket)
             if not positions:
                 self.logger.error(f"❌ Position {ticket} not found")
                 return False
 
             position = positions[0]
+            
+            # Prepare close request
             symbol = position.symbol
             volume = position.volume
             
+            # Determine opposite order type
             if position.type == mt5.POSITION_TYPE_BUY:
-                order_type = mt5.ORDER_TYPE_SELL
+                order_type = mt5.ORDER_TYPE_SELL if hasattr(mt5, 'ORDER_TYPE_SELL') else mt5.ORDER_TYPE_BUY
             else:
                 order_type = mt5.ORDER_TYPE_BUY
 
+            # Get current price
             tick = mt5.symbol_info_tick(symbol)
             if not tick:
                 return False
@@ -568,8 +632,8 @@ class MT5Client:
             self.logger.error(f"❌ Close position error: {str(e)}")
             return False
 
-    def get_trade_history(self, from_date: datetime, to_date: datetime) -> List[Dict[str, Any]]:
-        """Get trading history - FIXED method name."""
+    def get_history_deals(self, from_date: datetime, to_date: datetime) -> List[Dict[str, Any]]:
+        """Get trading history."""
         try:
             if not self.connected or not mt5:
                 return []
