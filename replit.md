@@ -80,3 +80,26 @@ Preferred communication style: Simple, everyday language.
 - **Real-time Data**: Continuous market data feeds for strategy calculations
 
 Note: This application trades with real money on live accounts and requires proper MT5 broker account setup and credentials.
+
+# Migration to Replit
+
+## Migration Completed: August 18, 2025
+
+The project has been successfully migrated from Replit Agent to the standard Replit environment with the following adaptations:
+
+### Security and Compatibility Improvements
+- **Environment Adaptation**: Project now runs cleanly in Linux environment with proper fallback for Windows-only MT5 package
+- **Dependency Management**: Core packages (pandas, numpy, PyQt5) installed via Replit package manager
+- **Demo Mode**: Robust demo mode with simulated trading data when MT5 is unavailable
+- **Error Handling**: Enhanced error handling for cross-platform compatibility
+
+### Current Status
+- **Console Demo**: Fully functional with simulated market data
+- **Real-time Updates**: Live dashboard showing account info, market data, and strategy analysis
+- **Demo Trading**: Safe simulation mode for testing without real money
+- **Cross-platform**: Works on both Linux (Replit) and Windows (with MT5)
+
+### Next Steps for Users
+- For live trading: Install on Windows machine with MetaTrader 5
+- For development/testing: Continue using the demo mode on Replit
+- All core functionality preserved and enhanced for better reliability
