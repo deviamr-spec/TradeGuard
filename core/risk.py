@@ -1,11 +1,12 @@
+
 """
 Risk Management Module.
-Handles position sizing, risk limits, and safety checks.
+Handles position sizing, risk validation, and risk monitoring.
 """
 
-import threading
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
+import threading
 
 from core.config import config
 from utils.logging_setup import get_logger
@@ -15,290 +16,106 @@ class RiskManager:
 
     def __init__(self):
         self.logger = get_logger(__name__)
-
-        # Risk parameters from config
-        self.max_risk_per_trade = config.get("risk_management.risk_per_trade", 0.02)
-        self.risk_per_trade = self.max_risk_per_trade  # Add missing attribute
-        self.max_daily_loss = config.get("trading.max_daily_loss", 0.05)
-        self.max_drawdown = config.get("trading.max_drawdown", 0.10)
-        self.max_positions = config.get("trading.max_positions", 5)
-        self.max_spread_pips = config.get("risk_management.max_spread_pips", 3)
-
-        # Session tracking
-        self.session_start_balance = 0.0
-        self.daily_start_balance = 0.0
-        self.peak_balance = 0.0
-        self.current_drawdown = 0.0
-        self.daily_loss = 0.0
-        self.current_balance = 0.0
-        self.daily_pnl = 0.0
-
-        # Trade tracking
-        self.trades_today = 0
-        self.max_trades_per_day = 20
-        self.max_daily_trades = 20
-        self.daily_trades = 0
-        self.losing_streak = 0
-        self.max_losing_streak = 5
         
-        # Missing attributes
-        self.margin_usage_percent = 0.0
-        self.winning_trades = 0
-        self.losing_trades = 0
-        self.total_trades = 0
-        self.total_profit = 0.0
-        self.total_loss = 0.0
-        self.emergency_stop = False
-        self.emergency_stop_triggered = False
-        self.emergency_stop_reason = ""
-        self.trading_halted = False
-        self.session_max_equity = 0.0
+        # Risk parameters from config
+        self.max_risk_per_trade = config.get("risk.max_risk_per_trade", 0.02)
+        self.max_daily_loss = config.get("risk.max_daily_loss", 0.05)
+        self.max_drawdown = config.get("risk.max_drawdown", 0.10)
+        self.max_positions = config.get("risk.max_positions", 5)
+        self.max_correlation = config.get("risk.max_correlation", 0.7)
+        
+        # Session tracking
+        self.session_start_balance = 10000.0
+        self.daily_start_balance = 10000.0
+        self.peak_balance = 10000.0
         self.session_trades = 0
-        self.open_positions = []
+        self.daily_trades = 0
+        self.last_trade_time = None
+        
+        # Risk metrics
+        self.current_drawdown = 0.0
+        self.daily_pnl = 0.0
+        self.session_pnl = 0.0
+        self.risk_per_trade = self.max_risk_per_trade
+        self.margin_usage_percent = 0.0
+        self.var_95 = 0.0
         
         # Thread safety
-        self.lock = threading.Lock()
+        self.risk_lock = threading.Lock()
         
-        # Date tracking
-        self.session_start_time = datetime.now()
-        self.last_trade_reset = datetime.now().date()
-
-        # Initialize daily tracking
-        if self.daily_start_balance == 0.0:
-            self.daily_start_balance = 10000.0  # Default demo balance
-        if self.session_start_balance == 0.0:
-            self.session_start_balance = self.daily_start_balance
-
         self.logger.info("✅ Risk Manager initialized")
+        self.logger.info(f"   Max risk per trade: {self.max_risk_per_trade:.1%}")
+        self.logger.info(f"   Max daily loss: {self.max_daily_loss:.1%}")
+        self.logger.info(f"   Max drawdown: {self.max_drawdown:.1%}")
 
-    def update_margin_usage(self, account_info: Dict[str, Any]) -> None:
-        """Update margin usage percentage."""
-        try:
-            equity = account_info.get('equity', 0.0)
-            margin = account_info.get('margin', 0.0)
-            
-            if equity > 0:
-                self.margin_usage_percent = (margin / equity) * 100
-            else:
-                self.margin_usage_percent = 0.0
-                
-        except Exception as e:
-            self.logger.error(f"❌ Margin usage update error: {str(e)}")
-            self.margin_usage_percent = 0.0
-
-    def _calculate_risk_score(self) -> float:
-        """Calculate overall risk score (0-100)."""
-        try:
-            risk_score = 0.0
-            
-            # Drawdown risk (0-30 points)
-            drawdown_risk = min(30, (self.current_drawdown / self.max_drawdown) * 30) if self.max_drawdown > 0 else 0
-            risk_score += drawdown_risk
-            
-            # Margin risk (0-25 points)
-            margin_risk = min(25, (self.margin_usage_percent / 100) * 25)
-            risk_score += margin_risk
-            
-            # Performance risk (0-25 points)
-            if self.total_trades > 0:
-                win_rate = (self.winning_trades / self.total_trades) * 100
-                if win_rate < 40:
-                    risk_score += 25
-                elif win_rate < 50:
-                    risk_score += 15
-                elif win_rate < 60:
-                    risk_score += 10
-            
-            # Daily loss risk (0-20 points)
-            if self.daily_start_balance > 0:
-                daily_loss_pct = abs(self.daily_pnl / self.daily_start_balance) * 100
-                risk_score += min(20, (daily_loss_pct / self.max_daily_loss) * 20)
-            
-            return min(100, max(0, risk_score))
-            
-        except Exception as e:
-            self.logger.error(f"❌ Risk score calculation error: {str(e)}")
-            return 50.0
-
-    def get_risk_metrics(self) -> Dict[str, Any]:
-        """
-        Get current risk metrics for GUI display.
-
-        Returns:
-            Risk metrics dictionary
-        """
-        try:
-            return {
-                "current_drawdown": self.current_drawdown,
-                "max_drawdown": self.max_drawdown,
-                "margin_usage": self.margin_usage_percent,
-                "win_rate": (self.winning_trades / self.total_trades * 100) if self.total_trades > 0 else 0,
-                "profit_factor": abs(self.total_profit / self.total_loss) if self.total_loss != 0 else float('inf'),
-                "total_trades": self.total_trades,
-                "emergency_stop": self.emergency_stop_triggered,
-                "risk_score": self._calculate_risk_score()
-            }
-        except Exception as e:
-            self.logger.error(f"❌ Risk metrics error: {str(e)}")
-            return {
-                "current_drawdown": 0.0,
-                "max_drawdown": 0.0,
-                "margin_usage": 0.0,
-                "win_rate": 0.0,
-                "profit_factor": 1.0,
-                "total_trades": 0,
-                "emergency_stop": False,
-                "risk_score": 0.0
-            }
-
-    def update_session_stats(self, account_info: Dict[str, Any]) -> None:
-        """Update session statistics with current account info."""
-        try:
-            current_balance = account_info.get('balance', 0.0)
-            current_equity = account_info.get('equity', 0.0)
-
-            # Initialize session start balance if not set
-            if self.session_start_balance == 0.0:
-                self.session_start_balance = current_balance
-                self.daily_start_balance = current_balance
-                self.peak_balance = current_balance
-
-            # Update peak balance
-            if current_equity > self.peak_balance:
-                self.peak_balance = current_equity
-
-            # Calculate current drawdown
-            if self.peak_balance > 0:
-                self.current_drawdown = (self.peak_balance - current_equity) / self.peak_balance
-
-            # Calculate daily loss
-            if self.daily_start_balance > 0:
-                self.daily_loss = (self.daily_start_balance - current_equity) / self.daily_start_balance
-
-        except Exception as e:
-            self.logger.error(f"❌ Error updating session stats: {str(e)}")
-
-    def on_trade_executed(self, trade_result: Dict[str, Any]) -> None:
-        """Update risk tracking when a trade is executed."""
-        try:
-            self.trades_today += 1
-            self.logger.debug(f"Trade executed, total today: {self.trades_today}")
-        except Exception as e:
-            self.logger.error(f"❌ Error updating trade execution stats: {str(e)}")
-
-    def initialize_session(self, starting_balance: float) -> None:
-        """Initialize a new trading session."""
-        try:
-            self.session_start_time = datetime.now()
-            self.session_start_balance = starting_balance
-            self.session_max_equity = starting_balance
-            self.session_trades = 0
-            self.emergency_stop = False
-            self.trading_halted = False
-            self.current_balance = starting_balance
-
-            self.logger.info(f"💼 Risk session initialized with balance: ${starting_balance:,.2f}")
-
-        except Exception as e:
-            self.logger.error(f"❌ Risk session initialization error: {str(e)}")
-
-    def validate_trade(self, signal: Dict[str, Any], account_info: Dict[str, Any],
+    def validate_trade(self, signal: Dict[str, Any], account_info: Dict[str, Any], 
                       positions: List[Dict[str, Any]], symbol_info: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Validate if a trade should be allowed.
-
+        Validate if a trade meets risk management criteria.
+        
+        Args:
+            signal: Trading signal dictionary
+            account_info: Current account information
+            positions: List of current positions
+            symbol_info: Symbol information
+            
         Returns:
-            Dict with 'allowed' (bool), 'reason' (str), and 'warnings' (list)
+            Dictionary with validation result and details
         """
         try:
-            warnings = []
-
-            # Reset daily counter if new day
-            current_date = datetime.now().date()
-            if current_date != self.last_trade_reset:
-                self.daily_trades = 0
-                self.last_trade_reset = current_date
-
-                # Check emergency stop
-                if self.emergency_stop:
-                    return {
-                        "allowed": False,
-                        "reason": "Emergency stop activated",
-                        "warnings": warnings
-                    }
-
-                # Check if trading is halted
-                if self.trading_halted:
-                    return {
-                        "allowed": False,
-                        "reason": "Trading halted due to risk limits",
-                        "warnings": warnings
-                    }
-
-                # Check max positions
+            with self.risk_lock:
+                validation = {
+                    "allowed": True,
+                    "reason": "",
+                    "warnings": []
+                }
+                
+                # Check maximum positions
                 if len(positions) >= self.max_positions:
-                    return {
-                        "allowed": False,
-                        "reason": f"Maximum positions reached ({self.max_positions})",
-                        "warnings": warnings
-                    }
-
-                # Check daily trade limit
-                if self.daily_trades >= self.max_daily_trades:
-                    return {
-                        "allowed": False,
-                        "reason": f"Daily trade limit reached ({self.max_daily_trades})",
-                        "warnings": warnings
-                    }
-
-                # Check account balance
-                current_balance = account_info.get("balance", 0)
-                if current_balance <= 0:
-                    return {
-                        "allowed": False,
-                        "reason": "Insufficient account balance",
-                        "warnings": warnings
-                    }
-
-                # Check margin level
-                margin_level = account_info.get("margin_level", 0)
-                if margin_level > 0 and margin_level < 200:  # 200% minimum margin level
-                    return {
-                        "allowed": False,
-                        "reason": f"Margin level too low ({margin_level:.1f}%)",
-                        "warnings": warnings
-                    }
-
+                    validation["allowed"] = False
+                    validation["reason"] = f"Maximum positions limit reached ({self.max_positions})"
+                    return validation
+                
                 # Check daily loss limit
-                current_equity = account_info.get("equity", 0)
-                if self.session_start_balance > 0:
-                    daily_loss = (self.session_start_balance - current_equity) / self.session_start_balance
-                    if daily_loss >= self.max_daily_loss:
-                        return {
-                            "allowed": False,
-                            "reason": f"Daily loss limit exceeded ({daily_loss:.1%})",
-                            "warnings": warnings
-                        }
-
-                    # Risk warnings (don't block trade but warn)
-                    if daily_loss >= self.max_daily_loss * 0.7:
-                        warnings.append(f"Approaching daily loss limit ({daily_loss:.1%})")
-
-                # Check signal quality
-                confidence = signal.get("confidence", 0)
-                if confidence < 50:
-                    warnings.append(f"Low signal confidence ({confidence:.1f}%)")
-
-                # Position count warning
-                if len(positions) >= self.max_positions * 0.8:
-                    warnings.append(f"High position count ({len(positions)})")
-
-                return {
-                "allowed": True,
-                "reason": "",
-                "warnings": warnings
-            }
-
+                current_balance = account_info.get("balance", 0)
+                if current_balance > 0:
+                    daily_loss_pct = (self.daily_start_balance - current_balance) / self.daily_start_balance
+                    if daily_loss_pct >= self.max_daily_loss:
+                        validation["allowed"] = False
+                        validation["reason"] = f"Daily loss limit exceeded ({daily_loss_pct:.1%} >= {self.max_daily_loss:.1%})"
+                        return validation
+                
+                # Check drawdown limit
+                if current_balance > 0 and self.peak_balance > 0:
+                    current_drawdown = (self.peak_balance - current_balance) / self.peak_balance
+                    if current_drawdown >= self.max_drawdown:
+                        validation["allowed"] = False
+                        validation["reason"] = f"Maximum drawdown exceeded ({current_drawdown:.1%} >= {self.max_drawdown:.1%})"
+                        return validation
+                
+                # Check free margin
+                free_margin = account_info.get("free_margin", 0)
+                if free_margin <= 0:
+                    validation["allowed"] = False
+                    validation["reason"] = "Insufficient free margin"
+                    return validation
+                
+                # Check symbol correlation (basic check for same symbol)
+                symbol = signal.get("symbol", "")
+                same_symbol_positions = [pos for pos in positions if pos.get("symbol") == symbol]
+                if len(same_symbol_positions) >= 2:
+                    validation["warnings"].append(f"Multiple positions on {symbol}")
+                
+                # Check trade timing (prevent overtrading)
+                if self.last_trade_time:
+                    time_since_last = datetime.now() - self.last_trade_time
+                    if time_since_last.total_seconds() < 30:  # 30 seconds minimum between trades
+                        validation["allowed"] = False
+                        validation["reason"] = "Too frequent trading"
+                        return validation
+                
+                return validation
+                
         except Exception as e:
             self.logger.error(f"❌ Trade validation error: {str(e)}")
             return {
@@ -307,63 +124,165 @@ class RiskManager:
                 "warnings": []
             }
 
-    def calculate_position_size(self, account_balance: float, risk_amount: float,
-                               stop_loss_pips: float, pip_value: float) -> float:
-        """Calculate position size based on risk parameters."""
+    def calculate_position_size(self, signal: Dict[str, Any], balance: float, 
+                              symbol_info: Dict[str, Any]) -> float:
+        """
+        Calculate optimal position size based on risk parameters.
+        
+        Args:
+            signal: Trading signal
+            balance: Account balance
+            symbol_info: Symbol information
+            
+        Returns:
+            Position size in lots
+        """
         try:
-            if stop_loss_pips <= 0 or pip_value <= 0:
-                return config.get("risk.min_lot_size", 0.01)
-
-            # Calculate lot size
-            pip_risk = stop_loss_pips * pip_value
-            lot_size = risk_amount / pip_risk
-
-            # Apply limits
-            min_lot = config.get("risk.min_lot_size", 0.01)
-            max_lot = config.get("risk.max_lot_size", 1.0)
-
-            lot_size = max(min_lot, min(lot_size, max_lot))
-
-            # Round to valid lot size
-            lot_size = round(lot_size / min_lot) * min_lot
-
-            return lot_size
-
+            # Get basic parameters
+            risk_amount = balance * self.risk_per_trade
+            
+            # Get symbol information
+            point = symbol_info.get("point", 0.00001)
+            volume_min = symbol_info.get("volume_min", 0.01)
+            volume_max = symbol_info.get("volume_max", 100.0)
+            volume_step = symbol_info.get("volume_step", 0.01)
+            contract_size = symbol_info.get("contract_size", 100000.0)
+            
+            # Calculate stop loss distance (basic calculation)
+            sl_distance_pips = 20  # Default 20 pips
+            confidence = signal.get("confidence", 50.0)
+            
+            # Adjust SL based on confidence
+            if confidence >= 80:
+                sl_distance_pips = 15
+            elif confidence >= 70:
+                sl_distance_pips = 20
+            else:
+                sl_distance_pips = 25
+            
+            sl_distance_price = sl_distance_pips * point * 10  # Convert pips to price
+            
+            # Calculate position size
+            # Risk Amount = Position Size * Contract Size * SL Distance
+            if sl_distance_price > 0:
+                position_size = risk_amount / (contract_size * sl_distance_price)
+            else:
+                position_size = volume_min
+            
+            # Round to valid step size
+            position_size = round(position_size / volume_step) * volume_step
+            
+            # Ensure within limits
+            position_size = max(volume_min, min(volume_max, position_size))
+            
+            # Additional safety check - limit to 10% of free margin
+            free_margin = signal.get("tick_data", {}).get("ask", 1.0) * contract_size * position_size
+            if balance > 0:
+                margin_usage = free_margin / balance
+                if margin_usage > 0.1:  # 10% max margin usage per trade
+                    position_size = (balance * 0.1) / (signal.get("tick_data", {}).get("ask", 1.0) * contract_size)
+                    position_size = max(volume_min, round(position_size / volume_step) * volume_step)
+            
+            return position_size
+            
         except Exception as e:
             self.logger.error(f"❌ Position size calculation error: {str(e)}")
-            return config.get("risk.min_lot_size", 0.01)
+            return symbol_info.get("volume_min", 0.01)
+
+    def update_session_stats(self, account_info: Dict[str, Any]) -> None:
+        """
+        Update session statistics and risk metrics.
+        
+        Args:
+            account_info: Current account information
+        """
+        try:
+            with self.risk_lock:
+                current_balance = account_info.get("balance", 0)
+                current_equity = account_info.get("equity", 0)
+                current_margin = account_info.get("margin", 0)
+                free_margin = account_info.get("free_margin", 0)
+                
+                # Update peak balance
+                if current_balance > self.peak_balance:
+                    self.peak_balance = current_balance
+                
+                # Calculate drawdown
+                if self.peak_balance > 0:
+                    self.current_drawdown = (self.peak_balance - current_balance) / self.peak_balance
+                
+                # Calculate PnL
+                if self.session_start_balance > 0:
+                    self.session_pnl = current_balance - self.session_start_balance
+                
+                if self.daily_start_balance > 0:
+                    self.daily_pnl = current_balance - self.daily_start_balance
+                
+                # Calculate margin usage
+                if current_balance > 0 and current_margin >= 0:
+                    self.margin_usage_percent = (current_margin / current_balance) * 100
+                else:
+                    self.margin_usage_percent = 0.0
+                
+                # Update VaR estimate (simplified)
+                if self.session_start_balance > 0:
+                    returns = abs(self.session_pnl / self.session_start_balance)
+                    self.var_95 = returns * 1.645  # 95% confidence level
+                
+        except Exception as e:
+            self.logger.error(f"❌ Session stats update error: {str(e)}")
+
+    def on_trade_executed(self, trade_result: Dict[str, Any]) -> None:
+        """
+        Update risk tracking when a trade is executed.
+        
+        Args:
+            trade_result: Trade execution result
+        """
+        try:
+            with self.risk_lock:
+                self.session_trades += 1
+                self.daily_trades += 1
+                self.last_trade_time = datetime.now()
+                
+                self.logger.info(f"📊 Trade executed - Session: {self.session_trades}, Daily: {self.daily_trades}")
+                
+        except Exception as e:
+            self.logger.error(f"❌ Trade tracking error: {str(e)}")
 
     def emergency_stop_check(self, account_info: Dict[str, Any]) -> bool:
-        """Check if emergency stop should be triggered."""
+        """
+        Check if emergency stop conditions are met.
+        
+        Args:
+            account_info: Current account information
+            
+        Returns:
+            True if emergency stop should be triggered
+        """
         try:
-            current_equity = account_info.get("equity", 0)
-
-            # Check critical drawdown
-            if current_equity < self.session_max_equity:
-                drawdown = (self.session_max_equity - current_equity) / self.session_max_equity
-                if drawdown >= self.max_drawdown * 1.5:  # 1.5x emergency threshold
-                    self.emergency_stop = True
-                    self.logger.critical(f"🚨 EMERGENCY STOP: Critical drawdown {drawdown*100:.1f}%")
+            current_balance = account_info.get("balance", 0)
+            
+            # Check daily loss limit
+            if self.daily_start_balance > 0:
+                daily_loss_pct = (self.daily_start_balance - current_balance) / self.daily_start_balance
+                if daily_loss_pct >= self.max_daily_loss:
+                    self.logger.critical(f"🚨 EMERGENCY STOP: Daily loss limit exceeded ({daily_loss_pct:.1%})")
                     return True
-
-            # Check critical daily loss
-            daily_pnl = current_equity - self.session_start_balance
-            if daily_pnl < 0:
-                daily_loss_pct = abs(daily_pnl) / self.session_start_balance
-                if daily_loss_pct >= self.max_daily_loss * 1.5:  # 1.5x emergency threshold
-                    self.emergency_stop = True
-                    self.logger.critical(f"🚨 EMERGENCY STOP: Critical daily loss {daily_loss_pct*100:.1f}%")
-                    return True
-
+            
+            # Check maximum drawdown
+            if self.current_drawdown >= self.max_drawdown:
+                self.logger.critical(f"🚨 EMERGENCY STOP: Maximum drawdown exceeded ({self.current_drawdown:.1%})")
+                return True
+            
             # Check margin level
             margin_level = account_info.get("margin_level", 1000)
-            if margin_level < 50 and margin_level > 0:
-                self.emergency_stop = True
-                self.logger.critical(f"🚨 EMERGENCY STOP: Critical margin level {margin_level:.1f}%")
+            if margin_level > 0 and margin_level < 100:  # Less than 100% margin level
+                self.logger.critical(f"🚨 EMERGENCY STOP: Low margin level ({margin_level:.1f}%)")
                 return True
-
+            
             return False
-
+            
         except Exception as e:
             self.logger.error(f"❌ Emergency stop check error: {str(e)}")
             return False
@@ -371,57 +290,51 @@ class RiskManager:
     def get_risk_report(self) -> Dict[str, Any]:
         """
         Generate comprehensive risk report.
-
+        
         Returns:
             Risk report dictionary
         """
         try:
-            current_time = datetime.now()
-
             return {
-                "timestamp": current_time,
-                "session_duration_hours": (current_time - self.session_start_time).total_seconds() / 3600,
-                "session_start_balance": self.session_start_balance,
-                "current_balance": self.current_balance,
-                "session_pnl": self.current_balance - self.session_start_balance,
-                "session_pnl_percent": ((self.current_balance - self.session_start_balance) / self.session_start_balance * 100) if self.session_start_balance > 0 else 0,
-                "daily_pnl": self.daily_pnl,
-                "daily_pnl_percent": (self.daily_pnl / self.daily_start_balance * 100) if self.daily_start_balance > 0 else 0,
-                "peak_balance": self.peak_balance,
-                "current_drawdown": self.current_drawdown,
-                "max_drawdown": self.max_drawdown,
-                "drawdown_percent": (self.current_drawdown / self.peak_balance * 100) if self.peak_balance > 0 else 0,
-                "risk_score": self._calculate_risk_score(),
-                "emergency_stop_active": self.emergency_stop_triggered,
-                "emergency_stop_reason": self.emergency_stop_reason,
-                "total_trades": self.total_trades,
-                "winning_trades": self.winning_trades,
-                "losing_trades": self.losing_trades,
-                "win_rate": (self.winning_trades / self.total_trades * 100) if self.total_trades > 0 else 0,
-                "average_profit": self.total_profit / self.winning_trades if self.winning_trades > 0 else 0,
-                "average_loss": abs(self.total_loss / self.losing_trades) if self.losing_trades > 0 else 0,
-                "profit_factor": abs(self.total_profit / self.total_loss) if self.total_loss != 0 else float('inf'),
-                "margin_usage_percent": self.margin_usage_percent,
-                "free_margin_percent": 100 - self.margin_usage_percent,
-                "position_count": len(self.open_positions),
-                "max_position_limit": self.max_positions,
-                "position_limit_usage": (len(self.open_positions) / self.max_positions * 100) if self.max_positions > 0 else 0
+                "session_stats": {
+                    "start_balance": self.session_start_balance,
+                    "peak_balance": self.peak_balance,
+                    "current_drawdown": self.current_drawdown,
+                    "session_pnl": self.session_pnl,
+                    "session_trades": self.session_trades
+                },
+                "daily_stats": {
+                    "start_balance": self.daily_start_balance,
+                    "daily_pnl": self.daily_pnl,
+                    "daily_trades": self.daily_trades
+                },
+                "risk_metrics": {
+                    "risk_per_trade": self.risk_per_trade,
+                    "margin_usage_percent": self.margin_usage_percent,
+                    "var_95": self.var_95,
+                    "max_positions": self.max_positions
+                },
+                "limits": {
+                    "max_risk_per_trade": self.max_risk_per_trade,
+                    "max_daily_loss": self.max_daily_loss,
+                    "max_drawdown": self.max_drawdown,
+                    "max_positions": self.max_positions
+                }
             }
-
+            
         except Exception as e:
             self.logger.error(f"❌ Risk report generation error: {str(e)}")
-            return {"error": str(e), "timestamp": datetime.now()}
+            return {"error": str(e)}
 
-    def reset_emergency_stop(self) -> bool:
-        """Reset emergency stop (manual override)."""
+    def reset_daily_stats(self) -> None:
+        """Reset daily statistics for new trading day."""
         try:
-            self.emergency_stop = False
-            self.trading_halted = False
-            self.emergency_stop_triggered = False
-            self.emergency_stop_reason = ""
-            self.logger.warning("⚠️ Emergency stop manually reset")
-            return True
-
+            with self.risk_lock:
+                self.daily_start_balance = self.session_start_balance
+                self.daily_trades = 0
+                self.daily_pnl = 0.0
+                
+                self.logger.info("🔄 Daily risk statistics reset")
+                
         except Exception as e:
-            self.logger.error(f"❌ Emergency stop reset error: {str(e)}")
-            return False
+            self.logger.error(f"❌ Daily stats reset error: {str(e)}")

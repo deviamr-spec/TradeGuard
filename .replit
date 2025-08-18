@@ -7,7 +7,7 @@ channel = "stable-25_05"
 packages = ["glibcLocales", "libGL", "mesa", "xorg.libX11", "xorg.libXau", "xorg.libXdmcp", "xorg.libxcb", "xorg.xorgserver", "xvfb-run"]
 
 [workflows]
-runButton = "Run Live Trading Bot"
+runButton = "Run Console Demo"
 
 [[workflows.workflow]]
 name = "Project"
@@ -82,3 +82,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
+
+[[workflows.workflow]]
+name = "Run Console Demo"
+author = 46590512
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python console_demo.py"

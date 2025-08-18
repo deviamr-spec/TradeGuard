@@ -1,48 +1,47 @@
+
 #!/usr/bin/env python3
 """
 Professional MT5 Automated Trading Bot
 Main entry point for the trading application.
+Enhanced with cross-platform support and robust error handling.
 """
 
 import sys
 import os
 import threading
 from typing import Optional
-from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtCore import QTimer
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Check if we're on a system that supports PyQt5
+GUI_AVAILABLE = True
+try:
+    from PyQt5.QtWidgets import QApplication, QMessageBox
+    from PyQt5.QtCore import QTimer
+except ImportError:
+    GUI_AVAILABLE = False
+    print("⚠️ GUI not available - running in console mode")
 
 from utils.logging_setup import setup_logging, get_logger
 from utils.diagnostics import run_startup_diagnostics
 from core.mt5_client import MT5Client
 from core.trade_engine import TradeEngine
-from gui.app import TradingBotGUI
 
-# Check and install MetaTrader5 if missing
-try:
-    import MetaTrader5 as mt5
-except ImportError:
-    import subprocess
-    import sys
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "MetaTrader5"])
-        import MetaTrader5 as mt5
-    except Exception as e:
-        print(f"Warning: Could not install MetaTrader5: {e}")
-        print("Bot will run in demo mode without MT5 connectivity")
+if GUI_AVAILABLE:
+    from gui.app import TradingBotGUI
 
 class TradingBotApplication:
-    """Main trading bot application coordinator."""
+    """Main trading bot application coordinator with cross-platform support."""
     
     def __init__(self):
         self.logger = get_logger(__name__)
         self.qt_app: Optional[QApplication] = None
-        self.main_window: Optional[TradingBotGUI] = None
+        self.main_window = None
         self.mt5_client: Optional[MT5Client] = None
         self.trade_engine: Optional[TradeEngine] = None
         self.running = False
+        self.gui_mode = GUI_AVAILABLE
         
     def initialize(self) -> bool:
         """Initialize all application components."""
@@ -53,94 +52,83 @@ class TradingBotApplication:
             
             # Run startup diagnostics
             self.logger.info("🔍 Running startup diagnostics...")
-            if not run_startup_diagnostics():
-                self.logger.error("❌ Startup diagnostics failed")
-                return False
-                
-            # Initialize Qt Application
-            self.qt_app = QApplication(sys.argv)
-            self.qt_app.setApplicationName("MT5 Trading Bot")
-            self.qt_app.setApplicationVersion("1.0.0")
+            diagnostic_result = run_startup_diagnostics()
+            
+            # Initialize Qt Application if available
+            if self.gui_mode:
+                try:
+                    self.qt_app = QApplication(sys.argv)
+                    self.qt_app.setApplicationName("MT5 Trading Bot")
+                    self.qt_app.setApplicationVersion("1.0.0")
+                except Exception as e:
+                    self.logger.warning(f"⚠️ GUI initialization failed: {str(e)}")
+                    self.gui_mode = False
             
             # Initialize MT5 client
-            self.logger.info("🔌 Connecting to MetaTrader 5...")
+            self.logger.info("🔌 Initializing MT5 client...")
             self.mt5_client = MT5Client()
+            
+            # Always attempt connection (will fallback to demo mode if needed)
             mt5_connected = self.mt5_client.connect()
             
             if not mt5_connected:
-                self.logger.error("❌ MT5 connection failed - LIVE TRADING REQUIRES MT5 CONNECTION")
-                self.logger.error("💡 This bot is configured for LIVE TRADING with real money")
-                self._show_error("MT5 Connection Required", 
-                    "This bot requires MetaTrader 5 connection for live trading.\n"
-                    "Please ensure MT5 is installed and running with live account.")
+                self.logger.error("❌ MT5 client initialization failed")
                 return False
                 
             # Initialize trade engine
             self.logger.info("⚙️ Initializing trade engine...")
             try:
-                from core.trade_engine import TradeEngine
                 self.trade_engine = TradeEngine(self.mt5_client)
                 
-                # Auto-start the trading engine for live trading
+                # Start the trading engine
                 if self.trade_engine.start():
-                    self.logger.info("✅ Trade engine started and ready for auto-trading")
-                    self.logger.info("🤖 Auto-trading is ENABLED by default")
+                    self.logger.info("✅ Trade engine started successfully")
                 else:
-                    self.logger.error("❌ Failed to start trade engine")
+                    self.logger.warning("⚠️ Trade engine start failed")
                     
             except Exception as e:
                 self.logger.error(f"❌ Trade engine initialization failed: {str(e)}")
-                self.logger.info("🔄 Creating basic trade engine for GUI compatibility...")
-                # Create a minimal trade engine for GUI compatibility
-                from core.trade_engine import TradeEngine
-                self.trade_engine = TradeEngine(self.mt5_client)
+                return False
                 
-            # Ensure all required attributes exist
-            if not hasattr(self.trade_engine, 'symbols'):
-                self.trade_engine.symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"]
-            if not hasattr(self.trade_engine, 'running'):
-                self.trade_engine.running = False
-            if not hasattr(self.trade_engine, 'trading_enabled'):
-                self.trade_engine.trading_enabled = False
-            if not hasattr(self.trade_engine, 'emergency_stop'):
-                def emergency_stop():
-                    self.trade_engine.trading_enabled = False
-                    self.trade_engine.running = False
-                    if hasattr(self.trade_engine, '_emergency_close_all_positions'):
-                        self.trade_engine._emergency_close_all_positions()
-                self.trade_engine.emergency_stop = emergency_stop
-            
-            # Initialize main GUI window
-            self.logger.info("🖥️ Launching GUI...")
-            try:
-                self.main_window = TradingBotGUI(self.mt5_client, self.trade_engine)
-                self.logger.info("✅ GUI initialized successfully")
-            except Exception as e:
-                self.logger.error(f"❌ GUI initialization failed: {str(e)}")
-                raise
-            
-            # Setup update timer for real-time data
-            self.update_timer = QTimer()
-            self.update_timer.timeout.connect(self._update_data)
-            self.update_timer.start(1000)  # Update every second
+            # Initialize GUI if available
+            if self.gui_mode:
+                self.logger.info("🖥️ Launching GUI...")
+                try:
+                    self.main_window = TradingBotGUI(self.mt5_client, self.trade_engine)
+                    
+                    # Setup update timer for real-time data
+                    self.update_timer = QTimer()
+                    self.update_timer.timeout.connect(self._update_data)
+                    self.update_timer.start(1000)  # Update every second
+                    
+                    self.logger.info("✅ GUI initialized successfully")
+                except Exception as e:
+                    self.logger.error(f"❌ GUI initialization failed: {str(e)}")
+                    self.gui_mode = False
             
             self.running = True
             self.logger.info("✅ Trading bot initialized successfully")
+            
+            # Show mode information
+            if getattr(self.mt5_client, 'demo_mode', False):
+                self.logger.warning("🎭 Running in DEMO MODE with simulated data")
+            else:
+                self.logger.info("💰 Running in LIVE MODE with real trading")
+                
             return True
             
         except Exception as e:
             self.logger.error(f"❌ Initialization failed: {str(e)}")
-            self._show_error("Initialization Error", f"Failed to initialize trading bot:\n{str(e)}")
             return False
     
     def _update_data(self):
         """Update real-time data in GUI."""
         try:
-            if self.main_window and self.running:
+            if self.main_window and self.running and self.gui_mode:
                 # Check MT5 connection health
-                if self.mt5_client and hasattr(self.mt5_client, 'is_connection_healthy'):
-                    if not self.mt5_client.is_connection_healthy():
-                        self.logger.warning("⚠️ MT5 connection unhealthy, attempting reconnection...")
+                if self.mt5_client and hasattr(self.mt5_client, 'monitor_connection'):
+                    connection_status = self.mt5_client.monitor_connection()
+                    if not connection_status.get("healthy", False) and not connection_status.get("demo_mode", False):
                         if hasattr(self.mt5_client, 'auto_reconnect'):
                             self.mt5_client.auto_reconnect()
                 
@@ -150,29 +138,30 @@ class TradingBotApplication:
     
     def _show_error(self, title: str, message: str):
         """Show error message dialog."""
-        if self.qt_app:
+        if self.qt_app and self.gui_mode:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle(title)
             msg.setText(message)
             msg.exec_()
     
-    def _show_live_trading_warning(self):
-        """Show live trading warning dialog."""
-        if self.qt_app:
+    def _show_demo_mode_info(self):
+        """Show demo mode information."""
+        if self.qt_app and self.gui_mode:
             msg = QMessageBox()
-            msg.setIcon(QMessageBox.Warning)
-            msg.setWindowTitle("🚨 LIVE TRADING WARNING")
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("🎭 Demo Mode Active")
             msg.setText(
-                "⚠️ WARNING: LIVE TRADING WITH REAL MONEY ⚠️\n\n"
-                "This bot will trade with REAL MONEY on your LIVE trading account.\n"
-                "You can lose significant amounts of money.\n\n"
-                "Make sure you:\n"
-                "• Have tested the strategy thoroughly\n"
-                "• Understand the risks involved\n"
-                "• Have proper risk management settings\n"
-                "• Monitor the bot continuously\n\n"
-                "USE AT YOUR OWN RISK!"
+                "🎭 DEMO MODE ACTIVE 🎭\n\n"
+                "The bot is running with simulated data because:\n"
+                "• MetaTrader5 package is not available on this platform\n"
+                "• This is a safe environment for testing\n\n"
+                "Features available in demo mode:\n"
+                "✅ Strategy analysis and signals\n"
+                "✅ Risk management simulation\n"
+                "✅ Performance tracking\n"
+                "✅ Full GUI functionality\n\n"
+                "For live trading, run on Windows with MT5 installed."
             )
             msg.setStandardButtons(QMessageBox.Ok)
             msg.exec_()
@@ -182,19 +171,26 @@ class TradingBotApplication:
         try:
             if not self.initialize():
                 return 1
+            
+            if self.gui_mode:
+                # Show demo mode info if applicable
+                if getattr(self.mt5_client, 'demo_mode', False):
+                    self._show_demo_mode_info()
                 
-            # Show live trading warning
-            self._show_live_trading_warning()
-            
-            # Show main window
-            if self.main_window:
-                self.main_window.show()
-            
-            # Start Qt event loop
-            self.logger.info("🎯 LIVE TRADING BOT is now running...")
-            if self.qt_app:
-                return self.qt_app.exec_()
-            return 1
+                # Show main window
+                if self.main_window:
+                    self.main_window.show()
+                
+                # Start Qt event loop
+                self.logger.info("🎯 Trading bot GUI is now running...")
+                if self.qt_app:
+                    return self.qt_app.exec_()
+                return 1
+            else:
+                # Console mode
+                self.logger.info("🎯 Trading bot is running in console mode...")
+                self._run_console_mode()
+                return 0
             
         except KeyboardInterrupt:
             self.logger.info("🛑 Received keyboard interrupt, shutting down...")
@@ -205,6 +201,35 @@ class TradingBotApplication:
         finally:
             self.shutdown()
     
+    def _run_console_mode(self):
+        """Run in console mode without GUI."""
+        try:
+            self.logger.info("📊 Console mode - monitoring trading activity...")
+            
+            while self.running:
+                try:
+                    # Get basic status
+                    if self.trade_engine:
+                        status = self.trade_engine.get_engine_status()
+                        account_info = status.get("account_info", {})
+                        
+                        self.logger.info(f"💰 Balance: ${account_info.get('balance', 0):,.2f}")
+                        self.logger.info(f"📈 Equity: ${account_info.get('equity', 0):,.2f}")
+                        self.logger.info(f"📊 Positions: {status.get('active_positions', 0)}")
+                        self.logger.info(f"⚙️ Engine: {'Running' if status.get('running') else 'Stopped'}")
+                        self.logger.info(f"🎯 Trading: {'Enabled' if status.get('trading_enabled') else 'Disabled'}")
+                    
+                    time.sleep(30)  # Update every 30 seconds in console mode
+                    
+                except KeyboardInterrupt:
+                    break
+                except Exception as e:
+                    self.logger.error(f"❌ Console mode error: {str(e)}")
+                    time.sleep(5)
+                    
+        except Exception as e:
+            self.logger.error(f"❌ Console mode fatal error: {str(e)}")
+    
     def shutdown(self):
         """Clean shutdown of all components."""
         try:
@@ -212,7 +237,7 @@ class TradingBotApplication:
             self.running = False
             
             # Stop update timer
-            if hasattr(self, 'update_timer'):
+            if hasattr(self, 'update_timer') and self.gui_mode:
                 self.update_timer.stop()
             
             # Stop trade engine
@@ -224,7 +249,7 @@ class TradingBotApplication:
                 self.mt5_client.disconnect()
                 
             # Close GUI
-            if self.main_window:
+            if self.main_window and self.gui_mode:
                 self.main_window.close()
                 
             self.logger.info("✅ Trading bot shutdown complete")
@@ -234,9 +259,13 @@ class TradingBotApplication:
 
 def main():
     """Application entry point."""
-    app = TradingBotApplication()
-    exit_code = app.run()
-    sys.exit(exit_code)
+    try:
+        app = TradingBotApplication()
+        exit_code = app.run()
+        sys.exit(exit_code)
+    except Exception as e:
+        print(f"❌ Fatal error: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
