@@ -7,7 +7,7 @@ channel = "stable-25_05"
 packages = ["glibcLocales", "libGL", "mesa", "xorg.libX11", "xorg.libXau", "xorg.libXdmcp", "xorg.libxcb", "xvfb-run", "xorg.xorgserver"]
 
 [workflows]
-runButton = "Project"
+runButton = "Console Demo"
 
 [[workflows.workflow]]
 name = "Project"
@@ -46,3 +46,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python -c \"from core.strategy.scalping import ScalpingStrategy; s = ScalpingStrategy(); print('Strategy test complete')\""
+
+[[workflows.workflow]]
+name = "Console Demo"
+author = 46583607
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python console_demo.py"

@@ -472,7 +472,7 @@ class TradingBotConsoleDemo:
 
 def main():
     """Main entry point."""
-    bot = ConsoleTradingBot()
+    bot = TradingBotConsoleDemo()
 
     try:
         if bot.initialize():

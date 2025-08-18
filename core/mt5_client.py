@@ -155,12 +155,14 @@ class MT5Client:
             variations = []
             
             if "XAU" in base_symbol.upper() or "GOLD" in base_symbol.upper():
-                # Gold variations
+                # Gold variations - Enhanced list
                 variations = [
                     "XAUUSD", "XAUUSDm", "XAUUSDM", "XAUUSDc", "XAUUSDC",
-                    "GOLD", "GOLDm", "GOLDM", "GOLDc", "GOLDC",
+                    "GOLD", "GOLDm", "GOLDM", "GOLDc", "GOLDC", "Gold",
                     "XAUUSD.a", "XAUUSD.b", "XAUUSD.raw", "XAUUSD_m",
-                    "XAU/USD", "XAU_USD", "XAUUSD.pro", "XAUUSD#"
+                    "XAU/USD", "XAU_USD", "XAUUSD.pro", "XAUUSD#",
+                    "XAUUSD.", "XAUUSD-", "XAUUSDi", "XAUUSDf",
+                    "GC", "GCm", "XAUUSD_raw", "GOLD_USD"
                 ]
             elif "XAG" in base_symbol.upper() or "SILVER" in base_symbol.upper():
                 # Silver variations
