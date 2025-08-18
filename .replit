@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["glibcLocales", "libGL", "mesa", "xorg.libX11", "xorg.libXau", "xorg.libXdmcp", "xorg.libxcb", "xvfb-run", "xorg.xorgserver"]
+packages = ["glibcLocales", "libGL", "mesa", "xorg.libX11", "xorg.libXau", "xorg.libXdmcp", "xorg.libxcb", "xorg.xorgserver", "xvfb-run"]
 
 [workflows]
 runButton = "Console Demo"

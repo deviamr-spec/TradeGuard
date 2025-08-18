@@ -25,7 +25,7 @@ from core.trade_engine import TradeEngine
 from gui.widgets import (
     AccountInfoWidget, PositionsWidget, EquityChartWidget,
     TradingControlWidget, LogWidget, StrategyStatsWidget,
-    RiskMonitorWidget
+    RiskMonitorWidget, PerformanceMonitorWidget
 )
 from utils.logging_setup import get_logger
 
@@ -255,6 +255,10 @@ class MainWindow(QMainWindow):
             self.risk_monitor_widget = RiskMonitorWidget(self.trade_engine.risk_manager)
             layout.addWidget(self.risk_monitor_widget)
 
+            # Performance Monitor
+            self.performance_monitor_widget = PerformanceMonitorWidget(self.trade_engine)
+            layout.addWidget(self.performance_monitor_widget)
+
             # Add stretch to push everything to top
             layout.addStretch()
 
@@ -435,6 +439,10 @@ class MainWindow(QMainWindow):
             # Update risk monitor
             if hasattr(self, 'risk_monitor_widget'):
                 self.risk_monitor_widget.update_data()
+
+            # Update performance monitor
+            if hasattr(self, 'performance_monitor_widget'):
+                self.performance_monitor_widget.update_data()
 
             # Update status bar
             self.update_status_bar()

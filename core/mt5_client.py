@@ -33,7 +33,7 @@ class MT5Client:
         
     def connect(self) -> bool:
         """
-        Connect to MetaTrader 5 terminal with enhanced validation.
+        Connect to MetaTrader 5 terminal with enhanced validation and retry logic.
         
         Returns:
             bool: True if connection successful, False otherwise
@@ -45,58 +45,188 @@ class MT5Client:
                 self.last_error = "MetaTrader5 package not available"
                 return False
             
-            # Shutdown any existing connection
-            mt5.shutdown()
-            time.sleep(1)
+            # Initialize connection tracking
+            self.connection_attempts = 0
+            max_attempts = 3
+            retry_delay = 2  # seconds
             
-            self.logger.info("🔌 Connecting to MetaTrader 5...")
-            
-            # Get connection credentials
-            credentials = config.get_mt5_credentials()
-            
-            # Try different initialization methods
-            init_methods = [
-                lambda: mt5.initialize(),
-                lambda: mt5.initialize(path=credentials["path"]),
-                lambda: mt5.initialize(
-                    path=credentials["path"],
-                    login=credentials["login"] if credentials["login"] != 0 else None,
-                    server=credentials["server"] if credentials["server"] else None,
-                    password=credentials["password"] if credentials["password"] else None
-                ),
-            ]
-            
-            for i, init_method in enumerate(init_methods):
-                try:
-                    self.logger.info(f"🔄 Trying connection method {i + 1}...")
-                    
-                    if init_method():
-                        self.logger.info(f"✅ MT5 connected using method {i + 1}")
-                        break
-                    else:
-                        error = mt5.last_error()
-                        self.logger.warning(f"⚠️ Method {i + 1} failed: {error}")
-                        
-                except Exception as e:
-                    self.logger.warning(f"⚠️ Method {i + 1} exception: {str(e)}")
-                    continue
-            else:
-                self.last_error = mt5.last_error() if mt5 else "MT5 not available"
-                self.logger.error(f"❌ All connection methods failed: {self.last_error}")
-                return False
-            
-            # Verify connection and get account info
-            if not self._verify_connection():
-                return False
+            for attempt in range(max_attempts):
+                self.connection_attempts = attempt + 1
+                self.logger.info(f"🔄 Connection attempt {self.connection_attempts}/{max_attempts}")
                 
-            self.connected = True
-            self.logger.info("✅ MT5 client connected successfully")
-            return True
+                try:
+                    # Shutdown any existing connection
+                    mt5.shutdown()
+                    time.sleep(1)
+                    
+                    self.logger.info("🔌 Connecting to MetaTrader 5...")
+                    
+                    # Get connection credentials
+                    credentials = config.get_mt5_credentials()
+                    
+                    # Try different initialization methods
+                    init_methods = [
+                        lambda: mt5.initialize(),
+                        lambda: mt5.initialize(path=credentials["path"]),
+                        lambda: mt5.initialize(
+                            path=credentials["path"],
+                            login=credentials["login"] if credentials["login"] != 0 else None,
+                            server=credentials["server"] if credentials["server"] else None,
+                            password=credentials["password"] if credentials["password"] else None
+                        ),
+                    ]
+                    
+                    connection_successful = False
+                    for i, init_method in enumerate(init_methods):
+                        try:
+                            self.logger.info(f"🔄 Trying connection method {i + 1}...")
+                            
+                            if init_method():
+                                self.logger.info(f"✅ MT5 connected using method {i + 1}")
+                                connection_successful = True
+                                break
+                            else:
+                                error = mt5.last_error()
+                                self.logger.warning(f"⚠️ Method {i + 1} failed: {error}")
+                                
+                        except Exception as e:
+                            self.logger.warning(f"⚠️ Method {i + 1} exception: {str(e)}")
+                            continue
+                    
+                    if not connection_successful:
+                        raise ConnectionError("All initialization methods failed")
+                    
+                    # Verify connection and get account info
+                    if not self._verify_connection():
+                        raise ConnectionError("Connection verification failed")
+                        
+                    self.connected = True
+                    self.last_connection_time = datetime.now()
+                    self.consecutive_failures = 0
+                    self.logger.info(f"✅ MT5 client connected successfully (attempt {self.connection_attempts})")
+                    return True
+                    
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Connection attempt {self.connection_attempts} failed: {str(e)}")
+                    self.last_error = str(e)
+                    
+                    if attempt < max_attempts - 1:
+                        self.logger.info(f"🔄 Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                    
+            # All attempts failed
+            self.connected = False
+            self.consecutive_failures = getattr(self, 'consecutive_failures', 0) + 1
+            self.logger.error(f"❌ All connection attempts failed ({max_attempts} attempts)")
+            return False
             
         except Exception as e:
             self.logger.error(f"❌ Connection failed: {str(e)}")
             self.last_error = str(e)
+            self.connected = False
             return False
+    
+    def is_connection_healthy(self) -> bool:
+        """
+        Check if the MT5 connection is healthy.
+        
+        Returns:
+            bool: True if connection is healthy
+        """
+        try:
+            if not self.connected:
+                return False
+            
+            if not MT5_AVAILABLE:
+                return False
+            
+            # Test connection with a simple call
+            account_info = mt5.account_info()
+            if not account_info:
+                self.logger.warning("⚠️ Connection health check failed: No account info")
+                return False
+            
+            # Check if we can get tick data for a common symbol
+            tick = mt5.symbol_info_tick("EURUSD")
+            if not tick:
+                # Try alternative symbols if EURUSD is not available
+                for test_symbol in ["GBPUSD", "USDJPY", "XAUUSD"]:
+                    tick = mt5.symbol_info_tick(test_symbol)
+                    if tick:
+                        break
+                else:
+                    self.logger.warning("⚠️ Connection health check failed: No tick data available")
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Connection health check error: {str(e)}")
+            return False
+    
+    def auto_reconnect(self) -> bool:
+        """
+        Attempt automatic reconnection.
+        
+        Returns:
+            bool: True if reconnection successful
+        """
+        try:
+            self.logger.info("🔄 Attempting automatic reconnection...")
+            
+            # Mark as disconnected
+            self.connected = False
+            
+            # Wait a moment before reconnecting
+            time.sleep(2)
+            
+            # Attempt reconnection
+            if self.connect():
+                self.logger.info("✅ Automatic reconnection successful")
+                return True
+            else:
+                self.logger.error("❌ Automatic reconnection failed")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ Auto-reconnection error: {str(e)}")
+            return False
+    
+    def monitor_connection(self) -> Dict[str, Any]:
+        """
+        Monitor connection status and return health information.
+        
+        Returns:
+            Dict with connection status information
+        """
+        try:
+            status = {
+                "connected": self.connected,
+                "healthy": False,
+                "last_error": self.last_error,
+                "consecutive_failures": getattr(self, 'consecutive_failures', 0),
+                "connection_attempts": getattr(self, 'connection_attempts', 0),
+                "last_connection_time": getattr(self, 'last_connection_time', None),
+                "uptime_seconds": 0
+            }
+            
+            if self.connected:
+                status["healthy"] = self.is_connection_healthy()
+                
+                if hasattr(self, 'last_connection_time') and self.last_connection_time:
+                    uptime = datetime.now() - self.last_connection_time
+                    status["uptime_seconds"] = int(uptime.total_seconds())
+            
+            return status
+            
+        except Exception as e:
+            self.logger.error(f"❌ Connection monitoring error: {str(e)}")
+            return {
+                "connected": False,
+                "healthy": False,
+                "error": str(e)
+            }
     
     def _verify_connection(self) -> bool:
         """Verify MT5 connection and account status."""

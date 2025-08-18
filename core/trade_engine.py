@@ -43,6 +43,14 @@ class TradeEngine:
         self.risk_manager = RiskManager()
         self.reporting = ReportingManager()
         
+        # Strategy management
+        self.available_strategies = {
+            "Scalping": ScalpingStrategy,
+            # Future strategies can be added here
+        }
+        self.current_strategy_name = "Scalping"
+        self.strategy_switch_lock = threading.Lock()
+        
         # Engine state
         self.running = False
         self.trading_enabled = False
@@ -138,6 +146,17 @@ class TradeEngine:
                 try:
                     loop_start = time.time()
                     
+                    # Monitor connection health
+                    connection_status = self.mt5_client.monitor_connection()
+                    if not connection_status["healthy"]:
+                        self.logger.warning("⚠️ MT5 connection unhealthy, attempting reconnection...")
+                        if self.mt5_client.auto_reconnect():
+                            self.logger.info("✅ Reconnection successful")
+                        else:
+                            self.logger.error("❌ Reconnection failed, continuing in offline mode")
+                            time.sleep(self.update_interval)
+                            continue
+
                     # Update account information
                     account_info = self.mt5_client.get_account_info()
                     if not account_info:
@@ -456,6 +475,124 @@ class TradeEngine:
                 
         except Exception as e:
             self.logger.error(f"❌ Force close position error: {str(e)}")
+            return False
+    
+    def switch_strategy(self, strategy_name: str) -> bool:
+        """
+        Dynamically switch trading strategy.
+        
+        Args:
+            strategy_name: Name of the strategy to switch to
+            
+        Returns:
+            bool: True if switch successful, False otherwise
+        """
+        try:
+            with self.strategy_switch_lock:
+                if strategy_name not in self.available_strategies:
+                    self.logger.error(f"❌ Unknown strategy: {strategy_name}")
+                    return False
+                
+                if strategy_name == self.current_strategy_name:
+                    self.logger.info(f"ℹ️ Already using strategy: {strategy_name}")
+                    return True
+                
+                self.logger.info(f"🔄 Switching strategy from {self.current_strategy_name} to {strategy_name}")
+                
+                # Create new strategy instance
+                strategy_class = self.available_strategies[strategy_name]
+                new_strategy = strategy_class()
+                
+                # Switch strategy
+                old_strategy = self.strategy
+                self.strategy = new_strategy
+                self.current_strategy_name = strategy_name
+                
+                # Log switch completion
+                self.logger.info(f"✅ Strategy switched to {strategy_name}")
+                
+                # Optional: Clear old signals to prevent conflicts
+                self.pending_signals.clear()
+                self.last_signal_time.clear()
+                
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"❌ Strategy switch error: {str(e)}")
+            return False
+    
+    def get_available_strategies(self) -> List[str]:
+        """
+        Get list of available strategies.
+        
+        Returns:
+            List of strategy names
+        """
+        return list(self.available_strategies.keys())
+    
+    def get_current_strategy_name(self) -> str:
+        """
+        Get current strategy name.
+        
+        Returns:
+            Current strategy name
+        """
+        return self.current_strategy_name
+    
+    def update_trading_parameters(self, parameters: Dict[str, Any]) -> bool:
+        """
+        Update trading parameters dynamically.
+        
+        Args:
+            parameters: Dictionary of parameters to update
+            
+        Returns:
+            bool: True if update successful
+        """
+        try:
+            updated_params = []
+            
+            # Update symbols
+            if "symbols" in parameters:
+                symbols = parameters["symbols"]
+                if isinstance(symbols, list):
+                    self.update_trading_symbols(symbols)
+                    updated_params.append("symbols")
+            
+            # Update timeframe
+            if "timeframe" in parameters:
+                timeframe = parameters["timeframe"]
+                valid_timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]
+                if timeframe in valid_timeframes:
+                    self.timeframe = timeframe
+                    updated_params.append("timeframe")
+                    self.logger.info(f"📊 Updated timeframe to {timeframe}")
+                else:
+                    self.logger.error(f"❌ Invalid timeframe: {timeframe}")
+            
+            # Update update interval
+            if "update_interval" in parameters:
+                interval = parameters["update_interval"]
+                if isinstance(interval, (int, float)) and interval > 0:
+                    self.update_interval = interval
+                    updated_params.append("update_interval")
+                    self.logger.info(f"⏱️ Updated interval to {interval}s")
+            
+            # Update strategy
+            if "strategy" in parameters:
+                strategy_name = parameters["strategy"]
+                if self.switch_strategy(strategy_name):
+                    updated_params.append("strategy")
+            
+            if updated_params:
+                self.logger.info(f"✅ Updated parameters: {', '.join(updated_params)}")
+                return True
+            else:
+                self.logger.warning("⚠️ No valid parameters to update")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ Parameter update error: {str(e)}")
             return False
     
     def update_trading_symbols(self, symbols: List[str]) -> None:
