@@ -381,6 +381,10 @@ class MT5Client:
             df['time'] = pd.to_datetime(df['time'], unit='s')
             df.set_index('time', inplace=True)
             
+            # Add tick_volume if not present (common in demo data)
+            if 'tick_volume' not in df.columns:
+                df['tick_volume'] = 100  # Default volume for demo mode
+            
             # Add symbol metadata
             df.attrs['symbol'] = actual_symbol
             df.attrs['original_symbol'] = symbol

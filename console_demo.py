@@ -149,12 +149,14 @@ class TradingBotConsoleDemo:
 
             def get_account_info(self):
                 return {
+                    "login": self.parent.demo_account.get("login", "Demo Account"),
                     "balance": self.parent.demo_account["balance"],
                     "equity": self.parent.demo_account["equity"],
                     "margin": self.parent.demo_account["margin"],
                     "free_margin": self.parent.demo_account["free_margin"],
+                    "margin_level": self.parent.demo_account.get("margin_level", 0.0),
+                    "profit": self.parent.demo_account.get("profit", 0.0),
                     "leverage": self.parent.demo_account["leverage"],
-                    "name": self.parent.demo_account.get("login", "Demo Account"),
                     "server": self.parent.demo_account.get("server", "Demo-Server"),
                     "currency": self.parent.demo_account.get("currency", "USD"),
                     "trade_allowed": self.parent.demo_account.get("trade_allowed", True)
@@ -309,6 +311,7 @@ class TradingBotConsoleDemo:
                 opens = [base_close * (1 + random.uniform(-0.0003, 0.0003)) for _ in range(50)]
                 
                 df = pd.DataFrame({
+                    'time': dates,
                     'open': opens,
                     'high': highs,
                     'low': lows,

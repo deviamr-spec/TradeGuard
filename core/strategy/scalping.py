@@ -436,7 +436,10 @@ class ScalpingStrategy:
             # Price action indicators
             df['body'] = abs(df['close'] - df['open'])
             df['total_range'] = df['high'] - df['low']
-            df['body_ratio'] = df['body'] / df['total_range'] if df['total_range'] > 0 else 0
+            # Fix division by zero and pandas Series ambiguous truth value
+            df['body_ratio'] = 0.0
+            non_zero_range = df['total_range'] != 0
+            df.loc[non_zero_range, 'body_ratio'] = df.loc[non_zero_range, 'body'] / df.loc[non_zero_range, 'total_range']
 
             return df
 
@@ -472,8 +475,20 @@ class ScalpingStrategy:
                     "timestamp": datetime.now()
                 }
 
+            # Validate DataFrame has required columns
+            required_columns = ['open', 'high', 'low', 'close']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                return {
+                    "symbol": symbol,
+                    "signal": "NONE",
+                    "confidence": 0.0,
+                    "reason": f"Missing required columns: {missing_columns}",
+                    "timestamp": datetime.now()
+                }
+
             current = df.iloc[-1]
-            previous = df.iloc[-2]
+            previous = df.iloc[-2] if len(df) > 1 else current
 
             # Analyze market context
             market_structure = self._analyze_market_structure(df)
@@ -489,26 +504,34 @@ class ScalpingStrategy:
             auto_execute = False
             auto_trade_threshold = 75.0
 
-            # RSI Signal Calculation
-            if current['rsi'] < self.rsi_oversold:
+            # RSI Signal Calculation - with safe access
+            current_rsi = current.get('rsi', 50.0) if pd.notna(current.get('rsi')) else 50.0
+            previous_rsi = previous.get('rsi', 50.0) if pd.notna(previous.get('rsi')) else 50.0
+            
+            if current_rsi < self.rsi_oversold:
                 rsi_signal = "BUY"
-                rsi_confidence = min(95.0, (30.0 - current['rsi']) / 30.0 * 100) # More oversold, higher confidence
-                if previous['rsi'] is not None and previous['rsi'] <= self.rsi_oversold:
+                rsi_confidence = min(95.0, (30.0 - current_rsi) / 30.0 * 100) # More oversold, higher confidence
+                if previous_rsi <= self.rsi_oversold:
                     rsi_confidence = min(98.0, rsi_confidence * 1.1) # Recovery confirmation
-            elif current['rsi'] > self.rsi_overbought:
+            elif current_rsi > self.rsi_overbought:
                 rsi_signal = "SELL"
-                rsi_confidence = min(95.0, (current['rsi'] - 70.0) / 30.0 * 100) # More overbought, higher confidence
-                if previous['rsi'] is not None and previous['rsi'] >= self.rsi_overbought:
+                rsi_confidence = min(95.0, (current_rsi - 70.0) / 30.0 * 100) # More overbought, higher confidence
+                if previous_rsi >= self.rsi_overbought:
                     rsi_confidence = min(98.0, rsi_confidence * 1.1) # Decline confirmation
             else:
                 rsi_signal = "HOLD"
                 rsi_confidence = 50.0
 
-            # EMA Signal Calculation
-            if current['ema_fast'] > current['ema_slow'] and previous['ema_fast'] <= previous['ema_slow']:
+            # EMA Signal Calculation - with safe access
+            current_ema_fast = current.get('ema_fast', 0.0) if pd.notna(current.get('ema_fast')) else 0.0
+            current_ema_slow = current.get('ema_slow', 0.0) if pd.notna(current.get('ema_slow')) else 0.0
+            previous_ema_fast = previous.get('ema_fast', 0.0) if pd.notna(previous.get('ema_fast')) else 0.0
+            previous_ema_slow = previous.get('ema_slow', 0.0) if pd.notna(previous.get('ema_slow')) else 0.0
+            
+            if current_ema_fast > current_ema_slow and previous_ema_fast <= previous_ema_slow:
                 ema_signal = "BUY"
                 ema_confidence = 70.0
-            elif current['ema_fast'] < current['ema_slow'] and previous['ema_fast'] >= previous['ema_slow']:
+            elif current_ema_fast < current_ema_slow and previous_ema_fast >= previous_ema_slow:
                 ema_signal = "SELL"
                 ema_confidence = 70.0
             else:
@@ -519,24 +542,26 @@ class ScalpingStrategy:
             # bb_buy_signal = current['close'] > current['bb_lower'] and previous['close'] <= previous['bb_lower']
             # bb_sell_signal = current['close'] < current['bb_upper'] and previous['close'] >= previous['bb_upper']
 
-            # Check for MACD signals (optional)
-            macd_buy_signal = current['macd_histogram'] > 0 and previous['macd_histogram'] <= 0
-            macd_sell_signal = current['macd_histogram'] < 0 and previous['macd_histogram'] >= 0
+            # Check for MACD signals (optional) - with safe access
+            current_macd_hist = current.get('macd_histogram', 0.0) if pd.notna(current.get('macd_histogram')) else 0.0
+            previous_macd_hist = previous.get('macd_histogram', 0.0) if pd.notna(previous.get('macd_histogram')) else 0.0
+            
+            macd_buy_signal = current_macd_hist > 0 and previous_macd_hist <= 0
+            macd_sell_signal = current_macd_hist < 0 and previous_macd_hist >= 0
 
             # --- Combining Signals and Market Context ---
 
             # Price action context
-            price_above_ema_fast = current['close'] > current['ema_fast']
-            ema_alignment = "UP" if current['ema_fast'] > current['ema_slow'] else "DOWN" if current['ema_fast'] < current['ema_slow'] else "FLAT"
+            price_above_ema_fast = current_price > indicator_ema_fast
+            ema_alignment = "UP" if indicator_ema_fast > indicator_ema_slow else "DOWN" if indicator_ema_fast < indicator_ema_slow else "FLAT"
             bb_position = market_structure.get("bb_position", 0.5) # Get bb_position from market_structure if available
 
             # Risk metrics
-            current_atr = current['atr']
             atr_risk = "NORMAL"
-            if current_atr is not None and current_atr > 0:
+            if indicator_atr > 0 and current_price > 0:
                 # Define risk thresholds based on ATR relative to price
-                atr_threshold_high = (current['close'] * 0.01) # e.g., 1% of price
-                if current_atr > atr_threshold_high:
+                atr_threshold_high = (current_price * 0.01) # e.g., 1% of price
+                if indicator_atr > atr_threshold_high:
                     atr_risk = "HIGH"
 
             # Enhanced signal determination with auto-decision capability
@@ -577,13 +602,14 @@ class ScalpingStrategy:
             auto_execute = confidence >= auto_trade_threshold and final_signal in ["BUY", "SELL"]
 
             # --- Prepare Return Dictionary ---
-            current_rsi = current['rsi']
-            current_ema_fast = current['ema_fast']
-            current_ema_slow = current['ema_slow']
-            current_bb_upper = current['bb_upper']
-            current_bb_lower = current['bb_lower']
-            current_atr = current['atr']
-            current_price = current['close']
+            # Use safe access for all indicator values
+            indicator_rsi = current.get('rsi', 50.0) if pd.notna(current.get('rsi')) else 50.0
+            indicator_ema_fast = current.get('ema_fast', 0.0) if pd.notna(current.get('ema_fast')) else 0.0
+            indicator_ema_slow = current.get('ema_slow', 0.0) if pd.notna(current.get('ema_slow')) else 0.0
+            indicator_bb_upper = current.get('bb_upper', 0.0) if pd.notna(current.get('bb_upper')) else 0.0
+            indicator_bb_lower = current.get('bb_lower', 0.0) if pd.notna(current.get('bb_lower')) else 0.0
+            indicator_atr = current.get('atr', 0.0) if pd.notna(current.get('atr')) else 0.0
+            current_price = current.get('close', 0.0) if pd.notna(current.get('close')) else 0.0
 
             # Additional context for return dictionary
             reason = "No clear signal"
@@ -614,12 +640,12 @@ class ScalpingStrategy:
                 "auto_execute": auto_execute,
                 "auto_threshold": auto_trade_threshold,
                 "indicators": {
-                    "rsi": current_rsi,
-                    "ema_fast": current_ema_fast,
-                    "ema_slow": current_ema_slow,
-                    "bb_upper": current_bb_upper,
-                    "bb_lower": current_bb_lower,
-                    "atr": current_atr
+                    "rsi": indicator_rsi,
+                    "ema_fast": indicator_ema_fast,
+                    "ema_slow": indicator_ema_slow,
+                    "bb_upper": indicator_bb_upper,
+                    "bb_lower": indicator_bb_lower,
+                    "atr": indicator_atr
                 },
                 "market_context": {
                     "trend": market_structure.get("trend", "SIDEWAYS"),

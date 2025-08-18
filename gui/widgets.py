@@ -169,11 +169,11 @@ class TradingControlWidget(QGroupBox):
         self.symbol_combo.addItems(["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "XAGUSD", "BTCUSD", "ETHUSD"])
         self.symbol_combo.setEditable(True)
         symbol_layout.addWidget(self.symbol_combo)
-        
+
         self.add_symbol_btn = QPushButton("Add Symbol")
         self.add_symbol_btn.clicked.connect(self.add_symbol)
         symbol_layout.addWidget(self.add_symbol_btn)
-        
+
         layout.addLayout(symbol_layout)
 
         # Trading parameters
@@ -211,7 +211,7 @@ class TradingControlWidget(QGroupBox):
         # Strategy settings
         strategy_group = QGroupBox("Strategy Settings")
         strategy_layout = QGridLayout()
-        
+
         # Min confidence
         strategy_layout.addWidget(QLabel("Min Confidence %:"), 0, 0)
         self.min_confidence_spin = QDoubleSpinBox()
@@ -219,12 +219,12 @@ class TradingControlWidget(QGroupBox):
         self.min_confidence_spin.setValue(75.0)
         self.min_confidence_spin.setDecimals(1)
         strategy_layout.addWidget(self.min_confidence_spin, 0, 1)
-        
+
         # Auto execute
         self.auto_execute_check = QCheckBox("Auto Execute High Confidence Signals")
         self.auto_execute_check.setChecked(True)
         strategy_layout.addWidget(self.auto_execute_check, 1, 0, 1, 2)
-        
+
         strategy_group.setLayout(strategy_layout)
         layout.addWidget(strategy_group)
 
@@ -239,7 +239,7 @@ class TradingControlWidget(QGroupBox):
         self.news_filter_check = QCheckBox("News Filter")
         self.news_filter_check.setChecked(True)
         options_layout.addWidget(self.news_filter_check)
-        
+
         self.live_trading_check = QCheckBox("⚠️ LIVE TRADING ENABLED")
         self.live_trading_check.setChecked(False)
         self.live_trading_check.setStyleSheet("QCheckBox { color: red; font-weight: bold; }")
@@ -309,7 +309,7 @@ class TradingControlWidget(QGroupBox):
             if symbol and symbol not in [self.symbol_combo.itemText(i) for i in range(self.symbol_combo.count())]:
                 self.symbol_combo.addItem(symbol)
                 self.symbol_combo.setCurrentText(symbol)
-                
+
         except Exception as e:
             self.logger.error(f"❌ Add symbol error: {str(e)}")
 
