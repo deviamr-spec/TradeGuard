@@ -131,11 +131,14 @@ class TradingBotApplication:
             self._show_live_trading_warning()
             
             # Show main window
-            self.main_window.show()
+            if self.main_window:
+                self.main_window.show()
             
             # Start Qt event loop
             self.logger.info("🎯 LIVE TRADING BOT is now running...")
-            return self.qt_app.exec_()
+            if self.qt_app:
+                return self.qt_app.exec_()
+            return 1
             
         except KeyboardInterrupt:
             self.logger.info("🛑 Received keyboard interrupt, shutting down...")
