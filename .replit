@@ -1,2 +1,30 @@
+modules = ["python-3.11"]
 [agent]
 expertMode = true
+
+[nix]
+channel = "stable-25_05"
+packages = ["glibcLocales", "libGL", "mesa", "xorg.libX11", "xorg.libXau", "xorg.libXdmcp", "xorg.libxcb", "xvfb-run", "xorg.xorgserver"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "MT5 Trading Bot"
+
+[[workflows.workflow]]
+name = "MT5 Trading Bot"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python console_demo.py"
