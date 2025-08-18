@@ -1,0 +1,123 @@
+00:54:44 | ERROR | ❌ Trade engine initialization failed: cannot access local variable 'TradeEngine' where it is not associated with a value
+00:54:44 | INFO | 🔄 Creating basic trade engine for GUI compatibility...
+00:54:44 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+00:54:44 | INFO | ✅ Risk Manager initialized
+00:54:44 | INFO | ✅ Reporting Manager initialized
+00:54:44 | INFO | ⚙️ Trade Engine initialized:
+00:54:44 | INFO |    Symbols: ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD']
+00:54:44 | INFO |    Timeframe: M1
+00:54:44 | INFO |    Update interval: 1.0s
+00:54:44 | INFO | 🖥️ Launching GUI...
+00:54:44 | INFO | ✅ GUI layout initialized
+00:54:44 | INFO | ✅ GUI updates started
+00:54:44 | INFO | 🖥️ Main GUI window initialized
+00:54:44 | INFO | ✅ GUI initialized successfully
+00:54:44 | INFO | ✅ Trading bot initialized successfully
+00:54:45 | WARNING | ⚠️ Connection health check failed: No tick data available
+00:54:45 | WARNING | ⚠️ MT5 connection unhealthy, attempting reconnection...
+00:54:45 | WARNING | 🔄 Connection unhealthy, attempting auto-reconnection...
+00:54:45 | INFO | 🔄 Reconnection attempt 1/5 in 2s...
+00:54:47 | INFO | 🔄 Connection attempt 1/3
+00:54:47 | INFO | 🔌 Connecting to MetaTrader 5...
+00:54:47 | INFO | ✅ MT5 connected using simple method
+00:54:47 | INFO | 📊 Account: 273631674
+00:54:47 | INFO | 💰 Balance: $4,315,335.58
+00:54:47 | INFO | 📈 Equity: $4,315,335.58
+00:54:47 | INFO | 🏦 Server: Exness-MT5Trial6
+00:54:47 | INFO | ✅ Trading is allowed
+00:54:47 | INFO | ✅ MT5 client connected successfully (attempt 1)
+00:54:47 | INFO | ✅ Auto-reconnection successful!
+00:54:47 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:54:47 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:54:47 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:54:47 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+--- Logging error ---
+--- Logging error ---
+00:54:47 | ERROR | ❌ Performance calculation error: maximum recursion depth exceeded
+--- Logging error ---
+00:54:47 | ERROR | ❌ Performance calculation error: maximum recursion depth exceeded
+00:54:47 | ERROR | ❌ Risk metrics error: 'RiskManager' object has no attribute 'margin_usage_percent'
+00:54:47 | ERROR | ❌ Risk metrics error: 'RiskManager' object has no attribute 'margin_usage_percent'
+00:54:47 | ERROR | ❌ Risk monitor update error: 'RiskManager' object has no attribute 'risk_per_trade'
+--- Logging error ---
+--- Logging error ---
+00:54:47 | ERROR | ❌ Performance calculation error: maximum recursion depth exceeded
+--- Logging error ---
+00:54:47 | ERROR | ❌ Performance calculation error: maximum recursion depth exceeded
+00:54:47 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:54:47 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:54:47 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:54:47 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+00:54:47 | INFO | 🎯 LIVE TRADING BOT is now running...
+00:54:48 | ERROR | ❌ Risk metrics error: 'RiskManager' object has no attribute 'margin_usage_percent'
+00:54:48 | ERROR | ❌ Risk monitor update error: 'RiskManager' object has no attribute 'risk_per_trade'
+--- Logging error ---
+--- Logging error ---
+--- Logging error ---
+00:54:48 | ERROR | ❌ Performance calculation error: maximum recursion depth exceeded
+00:54:48 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:54:48 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:54:48 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:54:48 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+00:54:48 | WARNING | ⚠️ Connection health check failed: No tick data available
+00:54:48 | WARNING | ⚠️ MT5 connection unhealthy, attempting reconnection...
+00:54:48 | WARNING | 🔄 Connection unhealthy, attempting auto-reconnection...
+00:54:48 | INFO | 🔄 Reconnection attempt 1/5 in 2s...
+00:54:50 | INFO | 🔄 Connection attempt 1/3
+00:54:50 | INFO | 🔌 Connecting to MetaTrader 5...
+00:54:50 | INFO | ✅ MT5 connected using simple method
+00:54:50 | INFO | 📊 Account: 273631674
+00:54:50 | INFO | 💰 Balance: $4,315,335.58
+00:54:50 | INFO | 📈 Equity: $4,315,335.58
+00:54:50 | INFO | 🏦 Server: Exness-MT5Trial6
+00:54:50 | INFO | ✅ Trading is allowed
+00:54:50 | INFO | ✅ MT5 client connected successfully (attempt 1)
+00:54:50 | INFO | ✅ Auto-reconnection successful!
+00:54:50 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:54:50 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:54:50 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:54:50 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+--- Logging error ---
+--- Logging error ---
+--- Logging error ---
+00:54:50 | ERROR | ❌ Performance calculation error: maximum recursion depth exceeded
+00:54:50 | ERROR | ❌ Risk metrics error: 'RiskManager' object has no attribute 'margin_usage_percent'
+00:54:51 | ERROR | ❌ Risk metrics error: 'RiskManager' object has no attribute 'margin_usage_percent'
+00:54:51 | ERROR | ❌ Risk monitor update error: 'RiskManager' object has no attribute 'risk_per_trade'
+--- Logging error ---
+--- Logging error ---
+--- Logging error ---
+00:54:51 | ERROR | ❌ Performance calculation error: maximum recursion depth exceeded
+00:54:51 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:54:51 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:54:51 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:54:51 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+00:54:51 | WARNING | ⚠️ Connection health check failed: No tick data available
+00:54:51 | WARNING | ⚠️ MT5 connection unhealthy, attempting reconnection...
+00:54:51 | WARNING | 🔄 Connection unhealthy, attempting auto-reconnection...
+00:54:51 | INFO | 🔄 Reconnection attempt 1/5 in 2s...
+00:54:53 | INFO | 🔄 Connection attempt 1/3
+00:54:53 | INFO | 🔌 Connecting to MetaTrader 5...
+00:54:53 | INFO | ✅ MT5 connected using simple method
+00:54:53 | INFO | 📊 Account: 273631674
+00:54:53 | INFO | 💰 Balance: $4,315,335.58
+00:54:53 | INFO | 📈 Equity: $4,315,335.58
+00:54:53 | INFO | 🏦 Server: Exness-MT5Trial6
+00:54:53 | INFO | ✅ Trading is allowed
+00:54:53 | INFO | ✅ MT5 client connected successfully (attempt 1)
+00:54:53 | INFO | ✅ Auto-reconnection successful!
+00:54:53 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:54:53 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:54:53 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:54:53 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+--- Logging error ---
+--- Logging error ---
+--- Logging error ---
+00:54:53 | ERROR | ❌ Performance calculation error: maximum recursion depth exceeded
+00:54:53 | ERROR | ❌ Risk metrics error: 'RiskManager' object has no attribute 'margin_usage_percent'
+00:54:54 | ERROR | ❌ Risk metrics error: 'RiskManager' object has no attribute 'margin_usage_percent'
+00:54:54 | ERROR | ❌ Risk monitor update error: 'RiskManager' object has no attribute 'risk_per_trade'
+--- Logging error ---
+--- Logging error ---
+--- Logging error ---
+00:54:54 | ERROR | ❌ Performance calculation error: maximum recursion depth exceede
