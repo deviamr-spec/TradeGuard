@@ -1,0 +1,32 @@
+00:40:11 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:40:11 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:40:11 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:40:11 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+00:40:11 | ERROR | ❌ Widget equity_chart update error: EquityChartWidget.update_data() missing 1 required positional argument: 'equity_value'
+00:40:12 | ERROR | ❌ Data update error: 'TradingBotGUI' object has no attribute 'update_data'
+00:40:12 | ERROR | ❌ Risk monitor update error: 'RiskManager' object has no attribute 'get_risk_metrics'
+00:40:12 | ERROR | ❌ Performance monitor update error: 'ReportingManager' object has no attribute 'get_performance_metrics'
+00:40:12 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:40:12 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:40:12 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:40:12 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+00:40:12 | ERROR | ❌ Widget equity_chart update error: EquityChartWidget.update_data() missing 1 required positional argument: 'equity_value'
+00:40:13 | ERROR | ❌ Data update error: 'TradingBotGUI' object has no attribute 'update_data'
+00:40:13 | ERROR | ❌ Risk monitor update error: 'RiskManager' object has no attribute 'get_risk_metrics'
+00:40:13 | ERROR | ❌ Performance monitor update error: 'ReportingManager' object has no attribute 'get_performance_metrics'
+00:40:13 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+00:40:13 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+00:40:13 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+00:40:13 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+00:40:13 | ERROR | ❌ Widget equity_chart update error: EquityChartWidget.update_data() missing 1 required positional argument: 'equity_value'
+00:40:14 | INFO | 🔄 Closing application...
+00:40:14 | INFO | 🔌 Disconnected from MT5
+00:40:14 | INFO | 🔌 MT5 disconnected
+00:40:14 | INFO | ✅ Application closed successfully
+00:40:14 | INFO | 🔄 Shutting down trading bot...
+00:40:14 | INFO | 🛑 Stopping trade engine...
+00:40:14 | WARNING | 🚨 Emergency closing all positions...
+00:40:14 | INFO | ✅ Trade engine stopped
+00:40:14 | INFO | 🔄 Closing application...
+00:40:14 | INFO | ✅ Application closed successfully
+00:40:14 | INFO | ✅ Trading bot shutdown complete
