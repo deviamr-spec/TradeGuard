@@ -18,7 +18,7 @@ from utils.logging_setup import setup_logging, get_logger
 from utils.diagnostics import run_startup_diagnostics
 from core.mt5_client import MT5Client
 from core.trade_engine import TradeEngine
-from gui.app import MainWindow
+from gui.app import TradingBotGUI
 
 class TradingBotApplication:
     """Main trading bot application coordinator."""
@@ -26,7 +26,7 @@ class TradingBotApplication:
     def __init__(self):
         self.logger = get_logger(__name__)
         self.qt_app: Optional[QApplication] = None
-        self.main_window: Optional[MainWindow] = None
+        self.main_window: Optional[TradingBotGUI] = None
         self.mt5_client: Optional[MT5Client] = None
         self.trade_engine: Optional[TradeEngine] = None
         self.running = False
@@ -68,7 +68,7 @@ class TradingBotApplication:
             
             # Initialize main GUI window
             self.logger.info("🖥️ Launching GUI...")
-            self.main_window = MainWindow(self.mt5_client, self.trade_engine)
+            self.main_window = TradingBotGUI(self.mt5_client, self.trade_engine)
             
             # Setup update timer for real-time data
             self.update_timer = QTimer()
