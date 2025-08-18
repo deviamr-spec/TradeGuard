@@ -18,6 +18,7 @@ class RiskManager:
 
         # Risk parameters from config
         self.max_risk_per_trade = config.get("risk_management.risk_per_trade", 0.02)
+        self.risk_per_trade = self.max_risk_per_trade  # Add missing attribute
         self.max_daily_loss = config.get("trading.max_daily_loss", 0.05)
         self.max_drawdown = config.get("trading.max_drawdown", 0.10)
         self.max_positions = config.get("trading.max_positions", 5)
@@ -29,14 +30,74 @@ class RiskManager:
         self.peak_balance = 0.0
         self.current_drawdown = 0.0
         self.daily_loss = 0.0
+        self.current_balance = 0.0
+        self.daily_pnl = 0.0
 
         # Trade tracking
         self.trades_today = 0
         self.max_trades_per_day = 20
+        self.max_daily_trades = 20
+        self.daily_trades = 0
         self.losing_streak = 0
         self.max_losing_streak = 5
+        
+        # Missing attributes
+        self.margin_usage_percent = 0.0
+        self.winning_trades = 0
+        self.losing_trades = 0
+        self.total_trades = 0
+        self.total_profit = 0.0
+        self.total_loss = 0.0
+        self.emergency_stop = False
+        self.emergency_stop_triggered = False
+        self.emergency_stop_reason = ""
+        self.trading_halted = False
+        self.session_max_equity = 0.0
+        self.session_trades = 0
+        self.open_positions = []
+        
+        # Thread safety
+        self.lock = threading.Lock()
+        
+        # Date tracking
+        self.session_start_time = datetime.now()
+        self.last_trade_reset = datetime.now().date()
 
         self.logger.info("✅ Risk Manager initialized")
+
+    def _calculate_risk_score(self) -> float:
+        """Calculate overall risk score (0-100)."""
+        try:
+            risk_score = 0.0
+            
+            # Drawdown risk (0-30 points)
+            drawdown_risk = min(30, (self.current_drawdown / self.max_drawdown) * 30) if self.max_drawdown > 0 else 0
+            risk_score += drawdown_risk
+            
+            # Margin risk (0-25 points)
+            margin_risk = min(25, (self.margin_usage_percent / 100) * 25)
+            risk_score += margin_risk
+            
+            # Performance risk (0-25 points)
+            if self.total_trades > 0:
+                win_rate = (self.winning_trades / self.total_trades) * 100
+                if win_rate < 40:
+                    risk_score += 25
+                elif win_rate < 50:
+                    risk_score += 15
+                elif win_rate < 60:
+                    risk_score += 10
+            
+            # Daily loss risk (0-20 points)
+            if self.daily_start_balance > 0:
+                daily_loss_pct = abs(self.daily_pnl / self.daily_start_balance) * 100
+                risk_score += min(20, (daily_loss_pct / self.max_daily_loss) * 20)
+            
+            return min(100, max(0, risk_score))
+            
+        except Exception as e:
+            self.logger.error(f"❌ Risk score calculation error: {str(e)}")
+            return 50.0
 
     def get_risk_metrics(self) -> Dict[str, Any]:
         """
@@ -107,15 +168,15 @@ class RiskManager:
     def initialize_session(self, starting_balance: float) -> None:
         """Initialize a new trading session."""
         try:
-            with self.lock:
-                self.session_start_time = datetime.now()
-                self.session_start_balance = starting_balance
-                self.session_max_equity = starting_balance
-                self.session_trades = 0
-                self.emergency_stop = False
-                self.trading_halted = False
+            self.session_start_time = datetime.now()
+            self.session_start_balance = starting_balance
+            self.session_max_equity = starting_balance
+            self.session_trades = 0
+            self.emergency_stop = False
+            self.trading_halted = False
+            self.current_balance = starting_balance
 
-                self.logger.info(f"💼 Risk session initialized with balance: ${starting_balance:,.2f}")
+            self.logger.info(f"💼 Risk session initialized with balance: ${starting_balance:,.2f}")
 
         except Exception as e:
             self.logger.error(f"❌ Risk session initialization error: {str(e)}")
@@ -129,14 +190,13 @@ class RiskManager:
             Dict with 'allowed' (bool), 'reason' (str), and 'warnings' (list)
         """
         try:
-            with self.lock:
-                warnings = []
+            warnings = []
 
-                # Reset daily counter if new day
-                current_date = datetime.now().date()
-                if current_date != self.last_trade_reset:
-                    self.daily_trades = 0
-                    self.last_trade_reset = current_date
+            # Reset daily counter if new day
+            current_date = datetime.now().date()
+            if current_date != self.last_trade_reset:
+                self.daily_trades = 0
+                self.last_trade_reset = current_date
 
                 # Check emergency stop
                 if self.emergency_stop:
@@ -213,10 +273,10 @@ class RiskManager:
                     warnings.append(f"High position count ({len(positions)})")
 
                 return {
-                    "allowed": True,
-                    "reason": "",
-                    "warnings": warnings
-                }
+                "allowed": True,
+                "reason": "",
+                "warnings": warnings
+            }
 
         except Exception as e:
             self.logger.error(f"❌ Trade validation error: {str(e)}")
@@ -334,11 +394,12 @@ class RiskManager:
     def reset_emergency_stop(self) -> bool:
         """Reset emergency stop (manual override)."""
         try:
-            with self.lock:
-                self.emergency_stop = False
-                self.trading_halted = False
-                self.logger.warning("⚠️ Emergency stop manually reset")
-                return True
+            self.emergency_stop = False
+            self.trading_halted = False
+            self.emergency_stop_triggered = False
+            self.emergency_stop_reason = ""
+            self.logger.warning("⚠️ Emergency stop manually reset")
+            return True
 
         except Exception as e:
             self.logger.error(f"❌ Emergency stop reset error: {str(e)}")

@@ -257,14 +257,90 @@ class ReportingManager:
     def calculate_performance_metrics(self) -> Dict[str, Any]:
         """Calculate comprehensive performance metrics."""
         try:
-            # Re-using get_performance_metrics for consistency
-            metrics = self.get_performance_metrics()
+            if not self.trades_data:
+                return {
+                    "total_trades": 0,
+                    "winning_trades": 0,
+                    "losing_trades": 0,
+                    "win_rate": 0.0,
+                    "total_profit": 0.0,
+                    "total_loss": 0.0,
+                    "net_profit": 0.0,
+                    "profit_factor": 0.0,
+                    "average_win": 0.0,
+                    "average_loss": 0.0,
+                    "largest_win": 0.0,
+                    "largest_loss": 0.0,
+                    "max_consecutive_wins": 0,
+                    "max_consecutive_losses": 0,
+                    "sharpe_ratio": 0.0,
+                    "max_drawdown": 0.0,
+                    "recovery_factor": 0.0,
+                    "profit_per_trade": 0.0,
+                    "session_duration_hours": 0.0,
+                    "trades_per_hour": 0.0,
+                    "session_start_balance": self.session_start_balance,
+                    "current_equity": self.equity_history[-1] if self.equity_history else self.session_start_balance
+                }
 
-            # Add specific metrics if needed or if get_performance_metrics needs enhancement
-            # For example, calculating Sharpe ratio might require historical data which isn't explicitly stored here anymore.
-            # If historical data is needed, the ReportingManager would need to store and process them.
+            # Calculate basic metrics
+            total_trades = len(self.trades_data)
+            profits = [trade.get('profit', 0) for trade in self.trades_data]
 
-            return metrics
+            winning_trades = len([p for p in profits if p > 0])
+            losing_trades = len([p for p in profits if p < 0])
+
+            total_profit = sum([p for p in profits if p > 0])
+            total_loss = sum([p for p in profits if p < 0])
+            net_profit = sum(profits)
+
+            win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+            profit_factor = abs(total_profit / total_loss) if total_loss != 0 else 0
+
+            average_win = total_profit / winning_trades if winning_trades > 0 else 0
+            average_loss = total_loss / losing_trades if losing_trades > 0 else 0
+
+            largest_win = max(profits) if profits else 0
+            largest_loss = min(profits) if profits else 0
+
+            # Calculate consecutive wins/losses
+            max_consecutive_wins, max_consecutive_losses = self._calculate_consecutive_streaks(profits)
+
+            # Calculate advanced metrics
+            sharpe_ratio = self._calculate_sharpe_ratio(profits)
+            max_drawdown = self._calculate_max_drawdown()
+            recovery_factor = abs(net_profit / max_drawdown) if max_drawdown != 0 else 0
+
+            profit_per_trade = net_profit / total_trades if total_trades > 0 else 0
+
+            # Session metrics
+            session_duration = (datetime.now() - self.session_start_time).total_seconds() / 3600
+            trades_per_hour = total_trades / session_duration if session_duration > 0 else 0
+
+            return {
+                "total_trades": total_trades,
+                "winning_trades": winning_trades,
+                "losing_trades": losing_trades,
+                "win_rate": round(win_rate, 2),
+                "total_profit": round(total_profit, 2),
+                "total_loss": round(total_loss, 2),
+                "net_profit": round(net_profit, 2),
+                "profit_factor": round(profit_factor, 2),
+                "average_win": round(average_win, 2),
+                "average_loss": round(average_loss, 2),
+                "largest_win": round(largest_win, 2),
+                "largest_loss": round(largest_loss, 2),
+                "max_consecutive_wins": max_consecutive_wins,
+                "max_consecutive_losses": max_consecutive_losses,
+                "sharpe_ratio": round(sharpe_ratio, 3),
+                "max_drawdown": round(max_drawdown, 2),
+                "recovery_factor": round(recovery_factor, 2),
+                "profit_per_trade": round(profit_per_trade, 2),
+                "session_duration_hours": round(session_duration, 2),
+                "trades_per_hour": round(trades_per_hour, 2),
+                "session_start_balance": self.session_start_balance,
+                "current_equity": self.equity_history[-1] if self.equity_history else self.session_start_balance
+            }
 
         except Exception as e:
             self.logger.error(f"❌ Performance calculation error: {str(e)}")
