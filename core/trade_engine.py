@@ -221,60 +221,83 @@ class TradeEngine:
     
     def _execute_signal(self, signal: Dict[str, Any], account_info: Dict[str, Any], 
                        positions: List[Dict[str, Any]]) -> None:
-        """Execute a trading signal."""
+        """Execute a trading signal with enhanced validation."""
         try:
             with self.trade_lock:
                 symbol = signal["symbol"]
                 
-                # Get symbol information
+                # Get symbol information with auto-detection
                 symbol_info = self.mt5_client.get_symbol_info(symbol)
                 if not symbol_info:
                     self.logger.error(f"❌ Failed to get symbol info for {symbol}")
                     return
                 
+                # Get actual symbol name after auto-detection
+                actual_symbol = symbol_info.get("symbol", symbol)
+                
                 # Validate trade with risk manager
                 validation = self.risk_manager.validate_trade(signal, account_info, positions, symbol_info)
                 if not validation["allowed"]:
-                    self.logger.info(f"🚫 Trade rejected for {symbol}: {validation['reason']}")
+                    self.logger.info(f"🚫 Trade rejected for {actual_symbol}: {validation['reason']}")
                     return
                 
                 # Log warnings if any
                 if validation["warnings"]:
-                    self.logger.warning(f"⚠️ Trade warnings for {symbol}: {', '.join(validation['warnings'])}")
+                    self.logger.warning(f"⚠️ Trade warnings for {actual_symbol}: {', '.join(validation['warnings'])}")
                 
-                # Calculate position sizing
-                confidence = signal["confidence"] / 100.0  # Convert to 0-1 scale
+                # Calculate position sizing with enhanced logic
+                confidence = signal["confidence"] / 100.0
                 lot_size, stop_loss, take_profit = self.strategy.calculate_position_size(
                     signal, account_info["balance"], symbol_info
                 )
                 
-                # Prepare order request
-                tick_data = signal["tick_data"]
-                current_price = tick_data["ask"] if signal["signal"] == "BUY" else tick_data["bid"]
+                # Get fresh tick data for actual symbol
+                fresh_tick = self.mt5_client.get_tick_data(symbol)
+                if not fresh_tick:
+                    self.logger.error(f"❌ Cannot get fresh tick data for {actual_symbol}")
+                    return
                 
+                current_price = fresh_tick["ask"] if signal["signal"] == "BUY" else fresh_tick["bid"]
+                
+                # Enhanced order request with proper symbol
                 order_request = {
                     "action": mt5.TRADE_ACTION_DEAL,
-                    "symbol": symbol,
+                    "symbol": actual_symbol,  # Use actual detected symbol
                     "volume": lot_size,
                     "type": mt5.ORDER_TYPE_BUY if signal["signal"] == "BUY" else mt5.ORDER_TYPE_SELL,
                     "price": current_price,
-                    "sl": stop_loss if stop_loss > 0 else 0.0,
-                    "tp": take_profit if take_profit > 0 else 0.0,
                     "deviation": 20,
                     "magic": 234000,
-                    "comment": f"Bot {signal['signal']} - Conf:{signal['confidence']:.1f}%",
+                    "comment": f"AutoBot {signal['signal']} C:{signal['confidence']:.0f}%",
                     "type_time": mt5.ORDER_TIME_GTC,
                     "type_filling": mt5.ORDER_FILLING_IOC,
                 }
                 
-                # Execute order
-                self.logger.info(f"📤 Executing {signal['signal']} order for {symbol}: {lot_size} lots @ {current_price}")
+                # Add SL/TP if calculated
+                if stop_loss > 0:
+                    order_request["sl"] = stop_loss
+                if take_profit > 0:
+                    order_request["tp"] = take_profit
                 
-                result = self.mt5_client.place_order(order_request)
+                # Execute order with retry logic
+                self.logger.info(f"📤 Executing {signal['signal']} order for {actual_symbol}: {lot_size} lots @ {current_price:.5f}")
+                
+                result = None
+                retry_count = 3
+                
+                for attempt in range(retry_count):
+                    result = self.mt5_client.place_order(order_request)
+                    if result:
+                        break
+                    elif attempt < retry_count - 1:
+                        self.logger.warning(f"⚠️ Order attempt {attempt + 1} failed, retrying...")
+                        time.sleep(1)
+                
                 if result:
                     # Log successful trade
                     trade_data = {
-                        "symbol": symbol,
+                        "symbol": actual_symbol,
+                        "original_symbol": symbol,
                         "type": signal["signal"],
                         "volume": lot_size,
                         "price": current_price,
@@ -282,29 +305,37 @@ class TradeEngine:
                         "tp": take_profit,
                         "order": result["order"],
                         "deal": result["deal"],
-                        "comment": order_request["comment"]
+                        "comment": order_request["comment"],
+                        "confidence": signal["confidence"],
+                        "market_context": signal.get("market_context", {})
                     }
                     
                     self.reporting.log_trade(trade_data)
                     self.risk_manager.on_trade_executed(result)
                     
-                    # Track position
+                    # Track position with enhanced data
                     self.active_positions[result["order"]] = {
-                        "symbol": symbol,
+                        "symbol": actual_symbol,
+                        "original_symbol": symbol,
                         "type": signal["signal"],
                         "volume": lot_size,
                         "entry_time": datetime.now(),
                         "entry_price": current_price,
+                        "sl": stop_loss,
+                        "tp": take_profit,
+                        "confidence": signal["confidence"],
                         "signal_data": signal
                     }
                     
-                    self.logger.info(f"✅ Trade executed successfully: {symbol} {signal['signal']} {lot_size} lots")
+                    self.logger.info(f"✅ Trade executed successfully: {actual_symbol} {signal['signal']} {lot_size} lots (Confidence: {signal['confidence']:.1f}%)")
                     
                 else:
-                    self.logger.error(f"❌ Trade execution failed for {symbol}")
+                    self.logger.error(f"❌ Trade execution failed for {actual_symbol} after {retry_count} attempts")
                     
         except Exception as e:
             self.logger.error(f"❌ Signal execution error: {str(e)}")
+            import traceback
+            self.logger.error(f"❌ Traceback: {traceback.format_exc()}")
     
     def _update_positions(self) -> None:
         """Update status of active positions."""

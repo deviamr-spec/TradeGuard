@@ -28,3 +28,21 @@ outputType = "console"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python console_demo.py"
+
+[[workflows.workflow]]
+name = "Run GUI"
+author = 46583607
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
+
+[[workflows.workflow]]
+name = "Test Strategy"
+author = 46583607
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -c \"from core.strategy.scalping import ScalpingStrategy; s = ScalpingStrategy(); print('Strategy test complete')\""

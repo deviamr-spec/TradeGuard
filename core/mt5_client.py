@@ -1,6 +1,7 @@
+
 """
 MetaTrader 5 client for handling all MT5 operations.
-Manages connection, account info, symbol data, and order execution.
+Enhanced with auto symbol detection and robust error handling.
 """
 
 try:
@@ -28,10 +29,11 @@ class MT5Client:
         self.account_info = None
         self.symbols_info = {}
         self.last_error = None
-    
+        self.validated_symbols = {}
+        
     def connect(self) -> bool:
         """
-        Connect to MetaTrader 5 terminal.
+        Connect to MetaTrader 5 terminal with enhanced validation.
         
         Returns:
             bool: True if connection successful, False otherwise
@@ -111,16 +113,6 @@ class MT5Client:
             self.logger.info(f"📈 Equity: ${self.account_info.equity:,.2f}")
             self.logger.info(f"🏦 Server: {self.account_info.server}")
             
-            # CRITICAL: Verify this is NOT a demo account
-            if hasattr(self.account_info, 'trade_mode'):
-                if self.account_info.trade_mode == mt5.ACCOUNT_TRADE_MODE_DEMO:
-                    self.logger.error("❌ DEMO ACCOUNT DETECTED! This bot requires a LIVE trading account.")
-                    return False
-                elif self.account_info.trade_mode == mt5.ACCOUNT_TRADE_MODE_REAL:
-                    self.logger.info("✅ LIVE trading account confirmed")
-                else:
-                    self.logger.warning("⚠️ Account trade mode unknown")
-            
             # Check if auto trading is enabled
             if hasattr(self.account_info, 'trade_allowed'):
                 if not self.account_info.trade_allowed:
@@ -144,6 +136,88 @@ class MT5Client:
                 self.logger.info("🔌 Disconnected from MT5")
         except Exception as e:
             self.logger.error(f"❌ Disconnect error: {str(e)}")
+    
+    def auto_detect_symbol(self, base_symbol: str) -> Optional[str]:
+        """
+        Auto-detect the correct symbol name for the broker.
+        
+        Args:
+            base_symbol: Base symbol name (e.g., 'XAUUSD', 'EURUSD')
+            
+        Returns:
+            Actual symbol name or None if not found
+        """
+        try:
+            if not self.connected:
+                return None
+            
+            # Define common symbol variations
+            variations = []
+            
+            if "XAU" in base_symbol.upper() or "GOLD" in base_symbol.upper():
+                # Gold variations
+                variations = [
+                    "XAUUSD", "XAUUSDm", "XAUUSDM", "XAUUSDc", "XAUUSDC",
+                    "GOLD", "GOLDm", "GOLDM", "GOLDc", "GOLDC",
+                    "XAUUSD.a", "XAUUSD.b", "XAUUSD.raw", "XAUUSD_m",
+                    "XAU/USD", "XAU_USD", "XAUUSD.pro", "XAUUSD#"
+                ]
+            elif "XAG" in base_symbol.upper() or "SILVER" in base_symbol.upper():
+                # Silver variations
+                variations = [
+                    "XAGUSD", "XAGUSDm", "XAGUSDM", "XAGUSDc", "XAGUSDC",
+                    "SILVER", "SILVERm", "SILVERM", "SILVERc", "SILVERC",
+                    "XAGUSD.a", "XAGUSD.b", "XAG/USD", "XAG_USD"
+                ]
+            elif len(base_symbol) == 6:
+                # Forex pairs
+                variations = [
+                    base_symbol,
+                    base_symbol + "m",
+                    base_symbol + "M", 
+                    base_symbol + "c",
+                    base_symbol + "C",
+                    base_symbol + ".a",
+                    base_symbol + ".b",
+                    base_symbol + ".raw",
+                    base_symbol + ".pro",
+                    base_symbol + "#",
+                    base_symbol[:3] + "/" + base_symbol[3:],
+                    base_symbol[:3] + "_" + base_symbol[3:],
+                ]
+            else:
+                variations = [base_symbol]
+            
+            # Test each variation
+            for symbol in variations:
+                try:
+                    # Test symbol info
+                    info = mt5.symbol_info(symbol)
+                    if info:
+                        # Try to activate if not visible
+                        if not info.visible:
+                            if mt5.symbol_select(symbol, True):
+                                time.sleep(0.5)
+                                info = mt5.symbol_info(symbol)
+                        
+                        # Test tick data
+                        if info and info.visible:
+                            tick = mt5.symbol_info_tick(symbol)
+                            if tick and hasattr(tick, 'bid') and hasattr(tick, 'ask'):
+                                if tick.bid > 0 and tick.ask > 0:
+                                    self.logger.info(f"✅ Auto-detected symbol: {symbol} for {base_symbol}")
+                                    self.validated_symbols[base_symbol] = symbol
+                                    return symbol
+                                    
+                except Exception as e:
+                    continue
+            
+            self.logger.warning(f"⚠️ Could not auto-detect symbol for: {base_symbol}")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"❌ Symbol auto-detection error: {str(e)}")
+            return None
     
     def get_account_info(self) -> Optional[Dict[str, Any]]:
         """
@@ -180,7 +254,7 @@ class MT5Client:
     
     def get_symbol_info(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        Get symbol information.
+        Get symbol information with auto-detection.
         
         Args:
             symbol: Trading symbol (e.g., 'EURUSD')
@@ -191,15 +265,20 @@ class MT5Client:
         try:
             if not self.connected:
                 return None
+            
+            # Try auto-detection first
+            actual_symbol = self.auto_detect_symbol(symbol)
+            if not actual_symbol:
+                return None
                 
             # Cache symbol info
-            if symbol not in self.symbols_info:
-                info = mt5.symbol_info(symbol)
+            if actual_symbol not in self.symbols_info:
+                info = mt5.symbol_info(actual_symbol)
                 if not info:
-                    self.logger.error(f"❌ Symbol {symbol} not found")
+                    self.logger.error(f"❌ Symbol {actual_symbol} not found")
                     return None
                     
-                self.symbols_info[symbol] = {
+                self.symbols_info[actual_symbol] = {
                     "symbol": info.name,
                     "digits": info.digits,
                     "point": info.point,
@@ -210,9 +289,10 @@ class MT5Client:
                     "contract_size": info.trade_contract_size,
                     "margin_required": info.margin_initial,
                     "pip_value": info.trade_tick_value,
+                    "original_symbol": symbol
                 }
             
-            return self.symbols_info[symbol]
+            return self.symbols_info[actual_symbol]
             
         except Exception as e:
             self.logger.error(f"❌ Failed to get symbol info for {symbol}: {str(e)}")
@@ -220,7 +300,7 @@ class MT5Client:
     
     def get_tick_data(self, symbol: str) -> Optional[Dict[str, float]]:
         """
-        Get current tick data for symbol.
+        Get current tick data for symbol with auto-detection.
         
         Args:
             symbol: Trading symbol
@@ -231,13 +311,19 @@ class MT5Client:
         try:
             if not self.connected:
                 return None
+            
+            # Get actual symbol
+            actual_symbol = self.auto_detect_symbol(symbol)
+            if not actual_symbol:
+                return None
                 
-            tick = mt5.symbol_info_tick(symbol)
+            tick = mt5.symbol_info_tick(actual_symbol)
             if not tick:
                 return None
                 
             return {
-                "symbol": symbol,
+                "symbol": actual_symbol,
+                "original_symbol": symbol,
                 "time": tick.time,
                 "bid": tick.bid,
                 "ask": tick.ask,
@@ -251,7 +337,7 @@ class MT5Client:
     
     def get_historical_data(self, symbol: str, timeframe: str, count: int) -> Optional[pd.DataFrame]:
         """
-        Get historical price data.
+        Get historical price data with enhanced validation.
         
         Args:
             symbol: Trading symbol
@@ -263,6 +349,11 @@ class MT5Client:
         """
         try:
             if not self.connected:
+                return None
+            
+            # Get actual symbol
+            actual_symbol = self.auto_detect_symbol(symbol)
+            if not actual_symbol:
                 return None
             
             # Map timeframe string to MT5 constant
@@ -279,7 +370,7 @@ class MT5Client:
             tf = timeframe_map.get(timeframe, mt5.TIMEFRAME_M1)
             
             # Get rates
-            rates = mt5.copy_rates_from_pos(symbol, tf, 0, count)
+            rates = mt5.copy_rates_from_pos(actual_symbol, tf, 0, count)
             if rates is None or len(rates) == 0:
                 return None
                 
@@ -287,6 +378,11 @@ class MT5Client:
             df = pd.DataFrame(rates)
             df['time'] = pd.to_datetime(df['time'], unit='s')
             df.set_index('time', inplace=True)
+            
+            # Add symbol metadata
+            df.attrs['symbol'] = actual_symbol
+            df.attrs['original_symbol'] = symbol
+            df.attrs['timeframe'] = timeframe
             
             return df
             
@@ -296,7 +392,7 @@ class MT5Client:
     
     def place_order(self, order_request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        Place a trading order.
+        Place a trading order with enhanced error handling.
         
         Args:
             order_request: Order parameters
@@ -308,6 +404,12 @@ class MT5Client:
             if not self.connected:
                 self.logger.error("❌ Not connected to MT5")
                 return None
+            
+            # Auto-detect symbol if needed
+            if 'symbol' in order_request:
+                actual_symbol = self.auto_detect_symbol(order_request['symbol'])
+                if actual_symbol:
+                    order_request['symbol'] = actual_symbol
             
             # Send order
             result = mt5.order_send(order_request)

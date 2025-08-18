@@ -1,824 +1,594 @@
 """
 GUI Widgets for MT5 Trading Bot.
-Reusable PyQt5 components for trading interface.
+Contains all custom widgets for the trading interface.
 """
 
 import sys
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+import threading
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
-    QPushButton, QTableWidget, QTableWidgetItem, QLineEdit,
-    QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox, QTextEdit,
-    QProgressBar, QGroupBox, QHeaderView, QFrame, QScrollArea,
-    QMessageBox, QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
+    QLabel, QPushButton, QTableWidget, QTableWidgetItem, QTextEdit,
+    QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
+    QProgressBar, QHeaderView, QFrame, QScrollArea, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QFont, QColor, QPalette, QPainter, QPen, QBrush
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal
+from PyQt5.QtGui import QFont, QColor, QPalette
 
 from utils.logging_setup import get_logger
 
 class AccountInfoWidget(QGroupBox):
     """Widget displaying account information."""
-    
+
     def __init__(self, mt5_client):
         super().__init__("💰 Account Information")
-        self.logger = get_logger(__name__)
         self.mt5_client = mt5_client
+        self.logger = get_logger(__name__)
         self.init_ui()
-    
+
     def init_ui(self):
-        """Initialize UI components."""
-        layout = QGridLayout(self)
-        layout.setSpacing(8)
-        
-        # Account details labels
-        self.labels = {
-            "login": QLabel("Login:"),
-            "server": QLabel("Server:"),
-            "balance": QLabel("Balance:"),
-            "equity": QLabel("Equity:"),
-            "margin": QLabel("Margin:"),
-            "free_margin": QLabel("Free Margin:"),
-            "margin_level": QLabel("Margin Level:"),
-            "profit": QLabel("Floating P&L:")
-        }
-        
-        self.values = {
-            "login": QLabel("N/A"),
-            "server": QLabel("N/A"),
-            "balance": QLabel("$0.00"),
-            "equity": QLabel("$0.00"),
-            "margin": QLabel("$0.00"),
-            "free_margin": QLabel("$0.00"),
-            "margin_level": QLabel("0.00%"),
-            "profit": QLabel("$0.00")
-        }
-        
-        # Set up labels
-        for key, label in self.labels.items():
-            label.setFont(QFont("Arial", 9, QFont.Bold))
-            
-        for key, value in self.values.items():
-            value.setFont(QFont("Arial", 9))
-            value.setStyleSheet("color: #ffffff; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-        
+        layout = QGridLayout()
+
+        # Account info labels
+        self.login_label = QLabel("Login: --")
+        self.server_label = QLabel("Server: --")
+        self.balance_label = QLabel("Balance: $0.00")
+        self.equity_label = QLabel("Equity: $0.00")
+        self.margin_label = QLabel("Margin: $0.00")
+        self.free_margin_label = QLabel("Free Margin: $0.00")
+        self.margin_level_label = QLabel("Margin Level: --%")
+        self.profit_label = QLabel("Profit: $0.00")
+
+        # Set font for better readability
+        font = QFont()
+        font.setPointSize(9)
+        for label in [self.login_label, self.server_label, self.balance_label,
+                     self.equity_label, self.margin_label, self.free_margin_label,
+                     self.margin_level_label, self.profit_label]:
+            label.setFont(font)
+
         # Layout
-        row = 0
-        for key in self.labels.keys():
-            layout.addWidget(self.labels[key], row, 0)
-            layout.addWidget(self.values[key], row, 1)
-            row += 1
-        
-        # Connection status indicator
-        self.connection_status = QLabel("🔴 Disconnected")
-        self.connection_status.setFont(QFont("Arial", 10, QFont.Bold))
-        layout.addWidget(self.connection_status, row, 0, 1, 2)
-        
-        layout.setColumnStretch(1, 1)
-    
+        layout.addWidget(self.login_label, 0, 0, 1, 2)
+        layout.addWidget(self.server_label, 1, 0, 1, 2)
+        layout.addWidget(self.balance_label, 2, 0)
+        layout.addWidget(self.equity_label, 2, 1)
+        layout.addWidget(self.margin_label, 3, 0)
+        layout.addWidget(self.free_margin_label, 3, 1)
+        layout.addWidget(self.margin_level_label, 4, 0)
+        layout.addWidget(self.profit_label, 4, 1)
+
+        self.setLayout(layout)
+
     def update_data(self):
         """Update account information."""
         try:
-            if not self.mt5_client or not self.mt5_client.connected:
-                self.connection_status.setText("🔴 Disconnected")
+            if not self.mt5_client.connected:
+                self.login_label.setText("Login: Disconnected")
+                self.server_label.setText("Server: --")
+                self.balance_label.setText("Balance: $0.00")
+                self.equity_label.setText("Equity: $0.00")
+                self.margin_label.setText("Margin: $0.00")
+                self.free_margin_label.setText("Free Margin: $0.00")
+                self.margin_level_label.setText("Margin Level: --%")
+                self.profit_label.setText("Profit: $0.00")
                 return
-            
+
             account_info = self.mt5_client.get_account_info()
-            if not account_info:
-                return
-            
-            # Update values
-            self.values["login"].setText(str(account_info.get("login", "N/A")))
-            self.values["server"].setText(str(account_info.get("server", "N/A")))
-            self.values["balance"].setText(f"${account_info.get('balance', 0):,.2f}")
-            self.values["equity"].setText(f"${account_info.get('equity', 0):,.2f}")
-            self.values["margin"].setText(f"${account_info.get('margin', 0):,.2f}")
-            self.values["free_margin"].setText(f"${account_info.get('free_margin', 0):,.2f}")
-            
-            # Margin level with color coding
-            margin_level = account_info.get('margin_level', 0)
-            self.values["margin_level"].setText(f"{margin_level:.2f}%")
-            if margin_level < 200:
-                self.values["margin_level"].setStyleSheet("color: #ff4444; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-            elif margin_level < 500:
-                self.values["margin_level"].setStyleSheet("color: #ffaa00; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-            else:
-                self.values["margin_level"].setStyleSheet("color: #44ff44; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-            
-            # Floating P&L with color coding
-            profit = account_info.get('profit', 0)
-            self.values["profit"].setText(f"${profit:,.2f}")
-            if profit > 0:
-                self.values["profit"].setStyleSheet("color: #44ff44; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-            elif profit < 0:
-                self.values["profit"].setStyleSheet("color: #ff4444; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-            else:
-                self.values["profit"].setStyleSheet("color: #ffffff; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-            
-            self.connection_status.setText("🟢 Connected")
-            
+            if account_info:
+                self.login_label.setText(f"Login: {account_info['login']}")
+                self.server_label.setText(f"Server: {account_info['server']}")
+                self.balance_label.setText(f"Balance: ${account_info['balance']:,.2f}")
+                self.equity_label.setText(f"Equity: ${account_info['equity']:,.2f}")
+                self.margin_label.setText(f"Margin: ${account_info['margin']:,.2f}")
+                self.free_margin_label.setText(f"Free Margin: ${account_info['free_margin']:,.2f}")
+
+                # Color code margin level
+                margin_level = account_info['margin_level']
+                if margin_level > 0:
+                    self.margin_level_label.setText(f"Margin Level: {margin_level:.1f}%")
+                    if margin_level < 100:
+                        self.margin_level_label.setStyleSheet("color: red;")
+                    elif margin_level < 200:
+                        self.margin_level_label.setStyleSheet("color: orange;")
+                    else:
+                        self.margin_level_label.setStyleSheet("color: green;")
+                else:
+                    self.margin_level_label.setText("Margin Level: --%")
+                    self.margin_level_label.setStyleSheet("color: white;")
+
+                # Color code profit
+                profit = account_info['profit']
+                self.profit_label.setText(f"Profit: ${profit:,.2f}")
+                if profit > 0:
+                    self.profit_label.setStyleSheet("color: green;")
+                elif profit < 0:
+                    self.profit_label.setStyleSheet("color: red;")
+                else:
+                    self.profit_label.setStyleSheet("color: white;")
+
         except Exception as e:
             self.logger.error(f"❌ Account widget update error: {str(e)}")
-            self.connection_status.setText("🔴 Error")
-    
+
     def fast_update(self):
-        """Fast update for real-time data."""
+        """Fast update for critical info only."""
         try:
-            if self.mt5_client and self.mt5_client.connected:
-                # Quick update of equity and profit only
+            if self.mt5_client.connected:
                 account_info = self.mt5_client.get_account_info()
                 if account_info:
-                    equity = account_info.get('equity', 0)
-                    profit = account_info.get('profit', 0)
-                    
-                    self.values["equity"].setText(f"${equity:,.2f}")
-                    self.values["profit"].setText(f"${profit:,.2f}")
-                    
-                    # Update profit color
+                    self.equity_label.setText(f"Equity: ${account_info['equity']:,.2f}")
+                    profit = account_info['profit']
+                    self.profit_label.setText(f"Profit: ${profit:,.2f}")
                     if profit > 0:
-                        self.values["profit"].setStyleSheet("color: #44ff44; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
+                        self.profit_label.setStyleSheet("color: green;")
                     elif profit < 0:
-                        self.values["profit"].setStyleSheet("color: #ff4444; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
+                        self.profit_label.setStyleSheet("color: red;")
                     else:
-                        self.values["profit"].setStyleSheet("color: #ffffff; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-                        
+                        self.profit_label.setStyleSheet("color: white;")
         except Exception as e:
-            pass  # Ignore errors in fast update
+            pass
 
 class TradingControlWidget(QGroupBox):
-    """Widget for trading controls and settings."""
-    
+    """Widget for trading controls."""
+
     def __init__(self, trade_engine):
         super().__init__("🎮 Trading Controls")
-        self.logger = get_logger(__name__)
         self.trade_engine = trade_engine
+        self.logger = get_logger(__name__)
         self.init_ui()
-        self.connect_signals()
-    
+
     def init_ui(self):
-        """Initialize UI components."""
-        layout = QVBoxLayout(self)
-        layout.setSpacing(10)
-        
+        layout = QVBoxLayout()
+
         # Trading status
-        self.status_label = QLabel("🛑 Trading Stopped")
-        self.status_label.setFont(QFont("Arial", 11, QFont.Bold))
+        self.status_label = QLabel("Status: Stopped")
+        self.status_label.setFont(QFont("Arial", 10, QFont.Bold))
         layout.addWidget(self.status_label)
-        
+
         # Control buttons
         button_layout = QHBoxLayout()
-        
-        self.start_button = QPushButton("▶️ Start")
-        self.start_button.setMinimumHeight(35)
-        self.start_button.setStyleSheet("QPushButton { background-color: #28a745; }")
-        
-        self.stop_button = QPushButton("⏹️ Stop")
-        self.stop_button.setMinimumHeight(35)
-        self.stop_button.setStyleSheet("QPushButton { background-color: #dc3545; }")
-        
-        button_layout.addWidget(self.start_button)
-        button_layout.addWidget(self.stop_button)
+
+        self.start_btn = QPushButton("🚀 Start Trading")
+        self.start_btn.clicked.connect(self.start_trading)
+        self.start_btn.setStyleSheet("QPushButton { background-color: #28a745; }")
+
+        self.stop_btn = QPushButton("🛑 Stop Trading")
+        self.stop_btn.clicked.connect(self.stop_trading)
+        self.stop_btn.setStyleSheet("QPushButton { background-color: #dc3545; }")
+        self.stop_btn.setEnabled(False)
+
+        button_layout.addWidget(self.start_btn)
+        button_layout.addWidget(self.stop_btn)
         layout.addLayout(button_layout)
-        
+
         # Symbol selection
-        symbols_layout = QVBoxLayout()
-        symbols_layout.addWidget(QLabel("Trading Symbols:"))
-        
-        self.symbols_combo = QComboBox()
-        self.symbols_combo.addItems(["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "EURJPY", "GBPJPY"])
-        symbols_layout.addWidget(self.symbols_combo)
-        
-        layout.addLayout(symbols_layout)
-        
-        # Strategy settings
-        strategy_group = QGroupBox("Strategy Settings")
-        strategy_layout = QGridLayout(strategy_group)
-        
-        # Risk per trade
-        strategy_layout.addWidget(QLabel("Risk per Trade:"), 0, 0)
-        self.risk_spinbox = QDoubleSpinBox()
-        self.risk_spinbox.setRange(0.1, 5.0)
-        self.risk_spinbox.setValue(1.0)
-        self.risk_spinbox.setSuffix("%")
-        strategy_layout.addWidget(self.risk_spinbox, 0, 1)
-        
-        # Take Profit
-        strategy_layout.addWidget(QLabel("Take Profit:"), 1, 0)
-        self.tp_spinbox = QDoubleSpinBox()
-        self.tp_spinbox.setRange(5, 100)
-        self.tp_spinbox.setValue(10.0)
-        self.tp_spinbox.setSuffix(" pips")
-        strategy_layout.addWidget(self.tp_spinbox, 1, 1)
-        
-        # Stop Loss
-        strategy_layout.addWidget(QLabel("Stop Loss:"), 2, 0)
-        self.sl_spinbox = QDoubleSpinBox()
-        self.sl_spinbox.setRange(3, 50)
-        self.sl_spinbox.setValue(5.0)
-        self.sl_spinbox.setSuffix(" pips")
-        strategy_layout.addWidget(self.sl_spinbox, 2, 1)
-        
-        layout.addWidget(strategy_group)
-        
-        # Emergency controls
-        emergency_layout = QVBoxLayout()
-        
-        self.close_all_button = QPushButton("🚨 Close All Positions")
-        self.close_all_button.setMinimumHeight(35)
-        self.close_all_button.setStyleSheet("QPushButton { background-color: #fd7e14; }")
-        emergency_layout.addWidget(self.close_all_button)
-        
-        layout.addLayout(emergency_layout)
-        
-        # Add stretch to push everything to top
-        layout.addStretch()
-    
-    def connect_signals(self):
-        """Connect widget signals."""
-        try:
-            self.start_button.clicked.connect(self.start_trading)
-            self.stop_button.clicked.connect(self.stop_trading)
-            self.close_all_button.clicked.connect(self.close_all_positions)
-            
-        except Exception as e:
-            self.logger.error(f"❌ Signal connection error: {str(e)}")
-    
+        symbol_layout = QHBoxLayout()
+        symbol_layout.addWidget(QLabel("Symbols:"))
+        self.symbol_combo = QComboBox()
+        self.symbol_combo.addItems(["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "XAGUSD"])
+        self.symbol_combo.setEditable(True)
+        symbol_layout.addWidget(self.symbol_combo)
+        layout.addLayout(symbol_layout)
+
+        # Trading parameters
+        params_group = QGroupBox("Trading Parameters")
+        params_layout = QGridLayout()
+
+        # Lot size
+        params_layout.addWidget(QLabel("Lot Size:"), 0, 0)
+        self.lot_spin = QDoubleSpinBox()
+        self.lot_spin.setRange(0.01, 100.0)
+        self.lot_spin.setSingleStep(0.01)
+        self.lot_spin.setValue(0.01)
+        self.lot_spin.setDecimals(2)
+        params_layout.addWidget(self.lot_spin, 0, 1)
+
+        # Risk percentage
+        params_layout.addWidget(QLabel("Risk %:"), 1, 0)
+        self.risk_spin = QDoubleSpinBox()
+        self.risk_spin.setRange(0.1, 10.0)
+        self.risk_spin.setSingleStep(0.1)
+        self.risk_spin.setValue(1.0)
+        self.risk_spin.setDecimals(1)
+        params_layout.addWidget(self.risk_spin, 1, 1)
+
+        # Max positions
+        params_layout.addWidget(QLabel("Max Positions:"), 2, 0)
+        self.max_pos_spin = QSpinBox()
+        self.max_pos_spin.setRange(1, 20)
+        self.max_pos_spin.setValue(5)
+        params_layout.addWidget(self.max_pos_spin, 2, 1)
+
+        params_group.setLayout(params_layout)
+        layout.addWidget(params_group)
+
+        # Auto trading options
+        options_group = QGroupBox("Options")
+        options_layout = QVBoxLayout()
+
+        self.auto_lot_check = QCheckBox("Auto Lot Sizing")
+        self.auto_lot_check.setChecked(True)
+        options_layout.addWidget(self.auto_lot_check)
+
+        self.news_filter_check = QCheckBox("News Filter")
+        self.news_filter_check.setChecked(True)
+        options_layout.addWidget(self.news_filter_check)
+
+        options_group.setLayout(options_layout)
+        layout.addWidget(options_group)
+
+        # Emergency close button
+        self.emergency_btn = QPushButton("🚨 EMERGENCY CLOSE ALL")
+        self.emergency_btn.clicked.connect(self.emergency_close)
+        self.emergency_btn.setStyleSheet("QPushButton { background-color: #ff6b6b; font-weight: bold; }")
+        layout.addWidget(self.emergency_btn)
+
+        self.setLayout(layout)
+
+        # Update timer
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.update_status)
+        self.update_timer.start(1000)
+
     def start_trading(self):
-        """Start trading."""
+        """Start automated trading."""
         try:
             if not self.trade_engine.running:
                 if self.trade_engine.start():
-                    self.status_label.setText("🟢 Trading Active")
-                    self.start_button.setEnabled(False)
-                    self.stop_button.setEnabled(True)
+                    self.start_btn.setEnabled(False)
+                    self.stop_btn.setEnabled(True)
+                    self.status_label.setText("Status: Starting...")
+                    self.status_label.setStyleSheet("color: orange;")
             else:
                 self.trade_engine.enable_trading()
-                self.status_label.setText("🟢 Trading Active")
-                
+                self.start_btn.setEnabled(False)
+                self.stop_btn.setEnabled(True)
+
         except Exception as e:
             self.logger.error(f"❌ Start trading error: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Failed to start trading:\n{str(e)}")
-    
+
     def stop_trading(self):
-        """Stop trading."""
+        """Stop automated trading."""
         try:
             self.trade_engine.disable_trading()
-            self.status_label.setText("🛑 Trading Stopped")
-            self.start_button.setEnabled(True)
-            self.stop_button.setEnabled(False)
-            
+            self.start_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            self.status_label.setText("Status: Stopped")
+            self.status_label.setStyleSheet("color: red;")
+
         except Exception as e:
             self.logger.error(f"❌ Stop trading error: {str(e)}")
-    
-    def close_all_positions(self):
-        """Close all positions."""
+
+    def emergency_close(self):
+        """Emergency close all positions."""
         try:
-            reply = QMessageBox.question(
-                self,
-                "Close All Positions",
-                "Are you sure you want to close ALL positions?",
-                QMessageBox.Yes | QMessageBox.No
-            )
-            
-            if reply == QMessageBox.Yes:
-                # This would be handled by the main window
-                self.parent().parent().parent().close_all_positions()
-                
+            positions = self.trade_engine.mt5_client.get_positions()
+            for position in positions:
+                self.trade_engine.force_close_position(position["ticket"])
+
+            self.logger.info("🚨 Emergency close executed")
+
         except Exception as e:
-            self.logger.error(f"❌ Close all positions error: {str(e)}")
+            self.logger.error(f"❌ Emergency close error: {str(e)}")
+
+    def update_status(self):
+        """Update trading status."""
+        try:
+            if self.trade_engine.running and self.trade_engine.trading_enabled:
+                self.status_label.setText("Status: 🟢 Trading Active")
+                self.status_label.setStyleSheet("color: green;")
+            elif self.trade_engine.running:
+                self.status_label.setText("Status: 🟡 Monitoring")
+                self.status_label.setStyleSheet("color: orange;")
+            else:
+                self.status_label.setText("Status: 🔴 Stopped")
+                self.status_label.setStyleSheet("color: red;")
+
+        except Exception as e:
+            pass
 
 class PositionsWidget(QGroupBox):
     """Widget displaying open positions."""
-    
+
     def __init__(self, mt5_client, trade_engine):
         super().__init__("💼 Open Positions")
-        self.logger = get_logger(__name__)
         self.mt5_client = mt5_client
         self.trade_engine = trade_engine
+        self.logger = get_logger(__name__)
         self.init_ui()
-    
+
     def init_ui(self):
-        """Initialize UI components."""
-        layout = QVBoxLayout(self)
-        
+        layout = QVBoxLayout()
+
         # Positions table
-        self.table = QTableWidget()
-        self.table.setColumnCount(9)
-        self.table.setHorizontalHeaderLabels([
-            "Ticket", "Symbol", "Type", "Volume", "Open Price", 
-            "Current Price", "S/L", "T/P", "Profit"
+        self.positions_table = QTableWidget()
+        self.positions_table.setColumnCount(8)
+        self.positions_table.setHorizontalHeaderLabels([
+            "Symbol", "Type", "Volume", "Entry", "Current", "SL", "TP", "Profit"
         ])
-        
-        # Configure table
-        header = self.table.horizontalHeader()
-        header.setStretchLastSection(True)
+
+        # Set column widths
+        header = self.positions_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
-        
-        self.table.setAlternatingRowColors(True)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSortingEnabled(True)
-        
-        layout.addWidget(self.table)
-        
-        # Control buttons
-        button_layout = QHBoxLayout()
-        
-        self.refresh_button = QPushButton("🔄 Refresh")
-        self.close_selected_button = QPushButton("❌ Close Selected")
-        
-        button_layout.addWidget(self.refresh_button)
-        button_layout.addWidget(self.close_selected_button)
-        button_layout.addStretch()
-        
-        layout.addLayout(button_layout)
-        
-        # Connect signals
-        self.refresh_button.clicked.connect(self.update_data)
-        self.close_selected_button.clicked.connect(self.close_selected_position)
-    
+
+        # Context menu for closing positions
+        self.positions_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.positions_table.customContextMenuRequested.connect(self.show_context_menu)
+
+        layout.addWidget(self.positions_table)
+
+        # Summary
+        self.summary_label = QLabel("No positions open")
+        layout.addWidget(self.summary_label)
+
+        self.setLayout(layout)
+
     def update_data(self):
-        """Update positions table."""
+        """Update positions data."""
         try:
-            if not self.mt5_client or not self.mt5_client.connected:
-                self.table.setRowCount(0)
-                return
-            
             positions = self.mt5_client.get_positions()
-            self.table.setRowCount(len(positions))
-            
-            for row, position in enumerate(positions):
-                # Ticket
-                self.table.setItem(row, 0, QTableWidgetItem(str(position.get("ticket", ""))))
-                
+
+            self.positions_table.setRowCount(len(positions))
+
+            total_profit = 0.0
+
+            for i, pos in enumerate(positions):
                 # Symbol
-                self.table.setItem(row, 1, QTableWidgetItem(position.get("symbol", "")))
-                
+                self.positions_table.setItem(i, 0, QTableWidgetItem(pos["symbol"]))
+
                 # Type
-                pos_type = position.get("type", "")
-                type_item = QTableWidgetItem(pos_type)
-                if pos_type == "BUY":
-                    type_item.setBackground(QColor(40, 167, 69, 100))
+                item = QTableWidgetItem(pos["type"])
+                if pos["type"] == "BUY":
+                    item.setBackground(QColor(0, 255, 0, 50))
                 else:
-                    type_item.setBackground(QColor(220, 53, 69, 100))
-                self.table.setItem(row, 2, type_item)
-                
+                    item.setBackground(QColor(255, 0, 0, 50))
+                self.positions_table.setItem(i, 1, item)
+
                 # Volume
-                self.table.setItem(row, 3, QTableWidgetItem(f"{position.get('volume', 0):.2f}"))
-                
-                # Open Price
-                self.table.setItem(row, 4, QTableWidgetItem(f"{position.get('price_open', 0):.5f}"))
-                
-                # Current Price
-                self.table.setItem(row, 5, QTableWidgetItem(f"{position.get('price_current', 0):.5f}"))
-                
-                # Stop Loss
-                sl = position.get('sl', 0)
-                self.table.setItem(row, 6, QTableWidgetItem(f"{sl:.5f}" if sl > 0 else "None"))
-                
-                # Take Profit
-                tp = position.get('tp', 0)
-                self.table.setItem(row, 7, QTableWidgetItem(f"{tp:.5f}" if tp > 0 else "None"))
-                
+                self.positions_table.setItem(i, 2, QTableWidgetItem(f"{pos['volume']:.2f}"))
+
+                # Entry price
+                self.positions_table.setItem(i, 3, QTableWidgetItem(f"{pos['price_open']:.5f}"))
+
+                # Current price
+                self.positions_table.setItem(i, 4, QTableWidgetItem(f"{pos['price_current']:.5f}"))
+
+                # SL
+                sl_text = f"{pos['sl']:.5f}" if pos['sl'] > 0 else "-"
+                self.positions_table.setItem(i, 5, QTableWidgetItem(sl_text))
+
+                # TP
+                tp_text = f"{pos['tp']:.5f}" if pos['tp'] > 0 else "-"
+                self.positions_table.setItem(i, 6, QTableWidgetItem(tp_text))
+
                 # Profit
-                profit = position.get('profit', 0)
+                profit = pos["profit"]
                 profit_item = QTableWidgetItem(f"${profit:.2f}")
                 if profit > 0:
-                    profit_item.setForeground(QColor(68, 255, 68))
+                    profit_item.setForeground(QColor(0, 255, 0))
                 elif profit < 0:
-                    profit_item.setForeground(QColor(255, 68, 68))
-                self.table.setItem(row, 8, profit_item)
-            
-        except Exception as e:
-            self.logger.error(f"❌ Positions update error: {str(e)}")
-    
-    def close_selected_position(self):
-        """Close selected position."""
-        try:
-            current_row = self.table.currentRow()
-            if current_row < 0:
-                QMessageBox.information(self, "Info", "Please select a position to close.")
-                return
-            
-            ticket_item = self.table.item(current_row, 0)
-            if not ticket_item:
-                return
-            
-            ticket = int(ticket_item.text())
-            symbol = self.table.item(current_row, 1).text()
-            
-            reply = QMessageBox.question(
-                self,
-                "Close Position",
-                f"Close position {ticket} ({symbol})?",
-                QMessageBox.Yes | QMessageBox.No
-            )
-            
-            if reply == QMessageBox.Yes:
-                if self.trade_engine.force_close_position(ticket):
-                    QMessageBox.information(self, "Success", "Position closed successfully.")
-                    self.update_data()
-                else:
-                    QMessageBox.warning(self, "Error", "Failed to close position.")
-                    
-        except Exception as e:
-            self.logger.error(f"❌ Close position error: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error closing position:\n{str(e)}")
+                    profit_item.setForeground(QColor(255, 0, 0))
+                self.positions_table.setItem(i, 7, profit_item)
 
-class EquityChartWidget(QGroupBox):
-    """Widget displaying equity chart."""
-    
-    def __init__(self, reporting_manager):
-        super().__init__("📈 Equity Chart")
-        self.logger = get_logger(__name__)
-        self.reporting_manager = reporting_manager
-        self.equity_data = []
-        self.init_ui()
-    
-    def init_ui(self):
-        """Initialize UI components."""
-        layout = QVBoxLayout(self)
-        
-        # Chart canvas (simplified)
-        self.chart_widget = QWidget()
-        self.chart_widget.setMinimumHeight(300)
-        self.chart_widget.setStyleSheet("background-color: #1e1e1e; border: 1px solid #555555;")
-        layout.addWidget(self.chart_widget)
-        
-        # Chart info
-        info_layout = QHBoxLayout()
-        
-        self.start_equity_label = QLabel("Start: $0.00")
-        self.current_equity_label = QLabel("Current: $0.00")
-        self.profit_label = QLabel("P&L: $0.00")
-        
-        info_layout.addWidget(self.start_equity_label)
-        info_layout.addWidget(self.current_equity_label)
-        info_layout.addWidget(self.profit_label)
-        info_layout.addStretch()
-        
-        layout.addLayout(info_layout)
-    
-    def paintEvent(self, event):
-        """Custom paint event to draw equity chart."""
-        super().paintEvent(event)
-        try:
-            if not self.equity_data or len(self.equity_data) < 2:
-                return
-            
-            painter = QPainter(self.chart_widget)
-            painter.setRenderHint(QPainter.Antialiasing)
-            
-            # Get widget dimensions
-            rect = self.chart_widget.rect()
-            margin = 20
-            chart_rect = rect.adjusted(margin, margin, -margin, -margin)
-            
-            if chart_rect.width() <= 0 or chart_rect.height() <= 0:
-                return
-            
-            # Calculate data ranges
-            equity_values = [point["equity"] for point in self.equity_data]
-            min_equity = min(equity_values)
-            max_equity = max(equity_values)
-            
-            if max_equity == min_equity:
-                max_equity += 1  # Avoid division by zero
-            
-            # Draw chart line
-            painter.setPen(QPen(QColor(0, 120, 212), 2))
-            
-            for i in range(1, len(self.equity_data)):
-                prev_point = self.equity_data[i-1]
-                curr_point = self.equity_data[i]
-                
-                # Calculate positions
-                x1 = chart_rect.left() + (i-1) * chart_rect.width() / (len(self.equity_data) - 1)
-                y1 = chart_rect.bottom() - ((prev_point["equity"] - min_equity) / (max_equity - min_equity)) * chart_rect.height()
-                
-                x2 = chart_rect.left() + i * chart_rect.width() / (len(self.equity_data) - 1)
-                y2 = chart_rect.bottom() - ((curr_point["equity"] - min_equity) / (max_equity - min_equity)) * chart_rect.height()
-                
-                painter.drawLine(int(x1), int(y1), int(x2), int(y2))
-            
-        except Exception as e:
-            self.logger.error(f"❌ Chart paint error: {str(e)}")
-    
-    def update_data(self):
-        """Update equity chart data."""
-        try:
-            if not self.reporting_manager:
-                return
-            
-            # Get equity data for last 24 hours
-            self.equity_data = self.reporting_manager.get_equity_data_for_chart(24)
-            
-            if self.equity_data:
-                start_equity = self.equity_data[0]["equity"]
-                current_equity = self.equity_data[-1]["equity"]
-                profit = current_equity - start_equity
-                
-                self.start_equity_label.setText(f"Start: ${start_equity:,.2f}")
-                self.current_equity_label.setText(f"Current: ${current_equity:,.2f}")
-                
-                profit_text = f"P&L: ${profit:,.2f}"
-                if profit > 0:
-                    self.profit_label.setText(profit_text)
-                    self.profit_label.setStyleSheet("color: #44ff44;")
-                elif profit < 0:
-                    self.profit_label.setText(profit_text)
-                    self.profit_label.setStyleSheet("color: #ff4444;")
-                else:
-                    self.profit_label.setText(profit_text)
-                    self.profit_label.setStyleSheet("color: #ffffff;")
-                
-                # Trigger repaint
-                self.chart_widget.update()
-            
-        except Exception as e:
-            self.logger.error(f"❌ Equity chart update error: {str(e)}")
+                total_profit += profit
 
-class StrategyStatsWidget(QGroupBox):
-    """Widget displaying strategy statistics."""
-    
-    def __init__(self, strategy):
-        super().__init__("📊 Strategy Statistics")
-        self.logger = get_logger(__name__)
-        self.strategy = strategy
-        self.init_ui()
-    
-    def init_ui(self):
-        """Initialize UI components."""
-        layout = QGridLayout(self)
-        
-        # Strategy stats labels
-        self.labels = {
-            "total_signals": QLabel("Total Signals:"),
-            "buy_signals": QLabel("Buy Signals:"),
-            "sell_signals": QLabel("Sell Signals:"),
-            "avg_confidence": QLabel("Avg Confidence:"),
-            "recent_signals": QLabel("Recent (24h):"),
-            "symbols_analyzed": QLabel("Symbols Analyzed:")
-        }
-        
-        self.values = {
-            "total_signals": QLabel("0"),
-            "buy_signals": QLabel("0"),
-            "sell_signals": QLabel("0"),
-            "avg_confidence": QLabel("0.0%"),
-            "recent_signals": QLabel("0"),
-            "symbols_analyzed": QLabel("0")
-        }
-        
-        # Set up labels
-        for key, label in self.labels.items():
-            label.setFont(QFont("Arial", 9, QFont.Bold))
-            
-        for key, value in self.values.items():
-            value.setFont(QFont("Arial", 9))
-            value.setStyleSheet("color: #ffffff; background-color: #1e1e1e; padding: 4px; border-radius: 2px;")
-        
-        # Layout
-        row = 0
-        for key in self.labels.keys():
-            layout.addWidget(self.labels[key], row, 0)
-            layout.addWidget(self.values[key], row, 1)
-            row += 1
-        
-        layout.setColumnStretch(1, 1)
-    
-    def update_data(self):
-        """Update strategy statistics."""
-        try:
-            if not self.strategy:
-                return
-            
-            stats = self.strategy.get_strategy_stats()
-            
-            if stats.get("no_data"):
-                for value in self.values.values():
-                    value.setText("N/A")
-                return
-            
-            self.values["total_signals"].setText(str(stats.get("total_signals", 0)))
-            self.values["buy_signals"].setText(str(stats.get("buy_signals", 0)))
-            self.values["sell_signals"].setText(str(stats.get("sell_signals", 0)))
-            self.values["avg_confidence"].setText(f"{stats.get('avg_confidence', 0):.1f}%")
-            self.values["recent_signals"].setText(str(stats.get("recent_signals_24h", 0)))
-            self.values["symbols_analyzed"].setText(str(stats.get("symbols_analyzed", 0)))
-            
-        except Exception as e:
-            self.logger.error(f"❌ Strategy stats update error: {str(e)}")
+            # Update summary
+            if positions:
+                summary_color = "green" if total_profit >= 0 else "red"
+                self.summary_label.setText(f"Total: {len(positions)} positions, Profit: ${total_profit:.2f}")
+                self.summary_label.setStyleSheet(f"color: {summary_color}; font-weight: bold;")
+            else:
+                self.summary_label.setText("No positions open")
+                self.summary_label.setStyleSheet("color: white;")
 
-class RiskMonitorWidget(QGroupBox):
-    """Widget for risk monitoring."""
-    
-    def __init__(self, risk_manager):
-        super().__init__("🛡️ Risk Monitor")
-        self.logger = get_logger(__name__)
-        self.risk_manager = risk_manager
-        self.init_ui()
-    
-    def init_ui(self):
-        """Initialize UI components."""
-        layout = QVBoxLayout(self)
-        
-        # Risk metrics
-        metrics_layout = QGridLayout()
-        
-        self.daily_trades_label = QLabel("Daily Trades:")
-        self.daily_trades_value = QLabel("0 / 50")
-        
-        self.daily_pl_label = QLabel("Daily P&L:")
-        self.daily_pl_value = QLabel("$0.00")
-        
-        self.max_dd_label = QLabel("Max Drawdown:")
-        self.max_dd_value = QLabel("0.00%")
-        
-        self.risk_score_label = QLabel("Risk Score:")
-        self.risk_score_value = QLabel("Low")
-        
-        metrics_layout.addWidget(self.daily_trades_label, 0, 0)
-        metrics_layout.addWidget(self.daily_trades_value, 0, 1)
-        metrics_layout.addWidget(self.daily_pl_label, 1, 0)
-        metrics_layout.addWidget(self.daily_pl_value, 1, 1)
-        metrics_layout.addWidget(self.max_dd_label, 2, 0)
-        metrics_layout.addWidget(self.max_dd_value, 2, 1)
-        metrics_layout.addWidget(self.risk_score_label, 3, 0)
-        metrics_layout.addWidget(self.risk_score_value, 3, 1)
-        
-        layout.addLayout(metrics_layout)
-        
-        # Risk progress bars
-        self.daily_limit_bar = QProgressBar()
-        self.daily_limit_bar.setMaximum(100)
-        self.daily_limit_bar.setTextVisible(True)
-        self.daily_limit_bar.setFormat("Daily Limit: %p%")
-        layout.addWidget(self.daily_limit_bar)
-        
-        self.drawdown_bar = QProgressBar()
-        self.drawdown_bar.setMaximum(100)
-        self.drawdown_bar.setTextVisible(True)
-        self.drawdown_bar.setFormat("Drawdown: %p%")
-        layout.addWidget(self.drawdown_bar)
-    
-    def update_data(self):
-        """Update risk monitoring data."""
-        try:
-            if not self.risk_manager:
-                return
-            
-            risk_report = self.risk_manager.get_risk_report()
-            
-            if "error" in risk_report:
-                return
-            
-            # Update labels
-            current_status = risk_report.get("current_status", {})
-            session_stats = risk_report.get("session_stats", {})
-            
-            daily_trades = current_status.get("daily_trades", 0)
-            max_trades = risk_report.get("risk_parameters", {}).get("max_daily_trades", 50)
-            self.daily_trades_value.setText(f"{daily_trades} / {max_trades}")
-            
-            daily_profit = session_stats.get("profit", 0.0)
-            self.daily_pl_value.setText(f"${daily_profit:.2f}")
-            if daily_profit > 0:
-                self.daily_pl_value.setStyleSheet("color: #44ff44;")
-            elif daily_profit < 0:
-                self.daily_pl_value.setStyleSheet("color: #ff4444;")
-            else:
-                self.daily_pl_value.setStyleSheet("color: #ffffff;")
-            
-            max_drawdown = session_stats.get("max_drawdown", 0.0)
-            self.max_dd_value.setText(f"{max_drawdown:.2f}%")
-            
-            # Update progress bars
-            trade_progress = (daily_trades / max_trades) * 100 if max_trades > 0 else 0
-            self.daily_limit_bar.setValue(int(trade_progress))
-            
-            max_dd_limit = risk_report.get("risk_parameters", {}).get("max_drawdown", 0.10) * 100
-            dd_progress = (max_drawdown / max_dd_limit) * 100 if max_dd_limit > 0 else 0
-            self.drawdown_bar.setValue(int(dd_progress))
-            
-            # Color coding for progress bars
-            if trade_progress > 80:
-                self.daily_limit_bar.setStyleSheet("QProgressBar::chunk { background-color: #ff4444; }")
-            elif trade_progress > 60:
-                self.daily_limit_bar.setStyleSheet("QProgressBar::chunk { background-color: #ffaa00; }")
-            else:
-                self.daily_limit_bar.setStyleSheet("QProgressBar::chunk { background-color: #44ff44; }")
-            
-            if dd_progress > 80:
-                self.drawdown_bar.setStyleSheet("QProgressBar::chunk { background-color: #ff4444; }")
-            elif dd_progress > 60:
-                self.drawdown_bar.setStyleSheet("QProgressBar::chunk { background-color: #ffaa00; }")
-            else:
-                self.drawdown_bar.setStyleSheet("QProgressBar::chunk { background-color: #44ff44; }")
-            
-            # Risk score
-            violations = risk_report.get("violations", {})
-            recent_violations = len(violations.get("recent_violations", []))
-            
-            if recent_violations > 3:
-                self.risk_score_value.setText("High")
-                self.risk_score_value.setStyleSheet("color: #ff4444;")
-            elif recent_violations > 1:
-                self.risk_score_value.setText("Medium")
-                self.risk_score_value.setStyleSheet("color: #ffaa00;")
-            else:
-                self.risk_score_value.setText("Low")
-                self.risk_score_value.setStyleSheet("color: #44ff44;")
-            
         except Exception as e:
-            self.logger.error(f"❌ Risk monitor update error: {str(e)}")
+            self.logger.error(f"❌ Positions widget update error: {str(e)}")
+
+    def show_context_menu(self, position):
+        """Show context menu for position actions."""
+        # Implement context menu for closing individual positions
+        pass
 
 class LogWidget(QGroupBox):
-    """Widget for displaying log messages."""
-    
+    """Widget for displaying logs."""
+
     def __init__(self):
         super().__init__("📋 System Logs")
-        self.logger = get_logger(__name__)
         self.init_ui()
-    
+        self.max_lines = 1000
+
     def init_ui(self):
-        """Initialize UI components."""
-        layout = QVBoxLayout(self)
-        
+        layout = QVBoxLayout()
+
         # Log text area
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setMaximumBlockCount(1000)  # Limit log entries
-        self.log_text.setFont(QFont("Consolas", 9))
+        self.log_text.setMaximumBlockCount(self.max_lines)
+
+        # Set monospace font
+        font = QFont("Consolas", 8)
+        font.setStyleHint(QFont.Monospace)
+        self.log_text.setFont(font)
+
         layout.addWidget(self.log_text)
-        
-        # Log controls
+
+        # Controls
         controls_layout = QHBoxLayout()
-        
-        self.clear_button = QPushButton("🗑️ Clear")
-        self.export_button = QPushButton("💾 Export")
-        
-        controls_layout.addWidget(self.clear_button)
-        controls_layout.addWidget(self.export_button)
+
+        self.clear_btn = QPushButton("Clear")
+        self.clear_btn.clicked.connect(self.clear_logs)
+
+        self.auto_scroll_check = QCheckBox("Auto Scroll")
+        self.auto_scroll_check.setChecked(True)
+
+        controls_layout.addWidget(self.clear_btn)
+        controls_layout.addWidget(self.auto_scroll_check)
         controls_layout.addStretch()
-        
+
         layout.addLayout(controls_layout)
-        
-        # Connect signals
-        self.clear_button.clicked.connect(self.clear_logs)
-        self.export_button.clicked.connect(self.export_logs)
-        
-        # Add initial message
-        self.add_message("System initialized", "INFO")
-    
+        self.setLayout(layout)
+
     def add_message(self, message: str, level: str = "INFO"):
         """Add a log message."""
         try:
             timestamp = datetime.now().strftime("%H:%M:%S")
-            
-            # Color coding by level
-            color_map = {
-                "INFO": "#ffffff",
-                "WARNING": "#ffaa00", 
-                "ERROR": "#ff4444",
-                "SUCCESS": "#44ff44",
-                "DEBUG": "#888888"
-            }
-            
-            color = color_map.get(level, "#ffffff")
-            
-            formatted_message = f'<span style="color: {color};">[{timestamp}] {level}: {message}</span>'
-            
-            self.log_text.append(formatted_message)
-            
-            # Auto-scroll to bottom
-            scrollbar = self.log_text.verticalScrollBar()
-            scrollbar.setValue(scrollbar.maximum())
-            
-        except Exception as e:
-            self.logger.error(f"❌ Log message error: {str(e)}")
-    
-    def clear_logs(self):
-        """Clear all log messages."""
-        try:
-            self.log_text.clear()
-            self.add_message("Logs cleared", "INFO")
-        except Exception as e:
-            self.logger.error(f"❌ Clear logs error: {str(e)}")
-    
-    def export_logs(self):
-        """Export logs to file."""
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"gui_logs_{timestamp}.txt"
-            
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(self.log_text.toPlainText())
-            
-            self.add_message(f"Logs exported to {filename}", "SUCCESS")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Export logs error: {str(e)}")
-            self.add_message(f"Export failed: {str(e)}", "ERROR")
 
+            # Color based on level
+            color_map = {
+                "DEBUG": "#888888",
+                "INFO": "#ffffff",
+                "WARNING": "#ffaa00",
+                "ERROR": "#ff4444",
+                "CRITICAL": "#ff0000"
+            }
+
+            color = color_map.get(level.upper(), "#ffffff")
+
+            formatted_message = f'<span style="color: {color};">[{timestamp}] {level}: {message}</span>'
+
+            self.log_text.append(formatted_message)
+
+            if self.auto_scroll_check.isChecked():
+                scrollbar = self.log_text.verticalScrollBar()
+                scrollbar.setValue(scrollbar.maximum())
+
+        except Exception as e:
+            pass
+
+    def clear_logs(self):
+        """Clear all logs."""
+        self.log_text.clear()
+
+class EquityChartWidget(QGroupBox):
+    """Widget for displaying equity chart."""
+
+    def __init__(self, reporting_manager):
+        super().__init__("📈 Equity Chart")
+        self.reporting_manager = reporting_manager
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        # Simple text-based chart for now
+        self.chart_text = QTextEdit()
+        self.chart_text.setReadOnly(True)
+        self.chart_text.setMaximumHeight(200)
+
+        layout.addWidget(QLabel("Equity curve (text-based):"))
+        layout.addWidget(self.chart_text)
+
+        self.setLayout(layout)
+
+    def update_data(self):
+        """Update equity chart."""
+        try:
+            equity_data = self.reporting_manager.get_equity_data()
+
+            if equity_data:
+                chart_text = "Time        Equity\n"
+                chart_text += "-" * 20 + "\n"
+
+                for point in equity_data[-10:]:  # Show last 10 points
+                    time_str = point["timestamp"].strftime("%H:%M:%S")
+                    equity = point["equity"]
+                    chart_text += f"{time_str}   ${equity:,.2f}\n"
+
+                self.chart_text.setText(chart_text)
+            else:
+                self.chart_text.setText("No equity data available")
+
+        except Exception as e:
+            self.chart_text.setText(f"Chart update error: {str(e)}")
+
+class StrategyStatsWidget(QGroupBox):
+    """Widget for displaying strategy statistics."""
+
+    def __init__(self, strategy):
+        super().__init__("📊 Strategy Statistics")
+        self.strategy = strategy
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        self.stats_text = QTextEdit()
+        self.stats_text.setReadOnly(True)
+        self.stats_text.setMaximumHeight(150)
+
+        layout.addWidget(self.stats_text)
+        self.setLayout(layout)
+
+    def update_data(self):
+        """Update strategy statistics."""
+        try:
+            stats = self.strategy.get_strategy_stats()
+
+            if stats.get("no_data"):
+                self.stats_text.setText("No strategy data available")
+                return
+
+            stats_text = ""
+            stats_text += f"Total Signals: {stats.get('total_signals', 0)}\n"
+            stats_text += f"Buy Signals: {stats.get('buy_signals', 0)}\n"
+            stats_text += f"Sell Signals: {stats.get('sell_signals', 0)}\n"
+            stats_text += f"Avg Confidence: {stats.get('avg_confidence', 0):.1f}%\n"
+            stats_text += f"24h Signals: {stats.get('recent_signals_24h', 0)}\n"
+            stats_text += f"Symbols: {stats.get('symbols_analyzed', 0)}\n"
+
+            if stats.get('last_signal_time'):
+                last_time = stats['last_signal_time'].strftime("%H:%M:%S")
+                stats_text += f"Last Signal: {last_time}\n"
+
+            self.stats_text.setText(stats_text)
+
+        except Exception as e:
+            self.stats_text.setText(f"Stats error: {str(e)}")
+
+class RiskMonitorWidget(QGroupBox):
+    """Widget for risk monitoring."""
+
+    def __init__(self, risk_manager):
+        super().__init__("🛡️ Risk Monitor")
+        self.risk_manager = risk_manager
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        self.risk_text = QTextEdit()
+        self.risk_text.setReadOnly(True)
+        self.risk_text.setMaximumHeight(120)
+
+        layout.addWidget(self.risk_text)
+        self.setLayout(layout)
+
+    def update_data(self):
+        """Update risk monitor."""
+        try:
+            risk_report = self.risk_manager.get_risk_report()
+
+            if risk_report.get("error"):
+                self.risk_text.setText(f"Risk monitor error: {risk_report['error']}")
+                return
+
+            risk_text = ""
+            risk_text += f"Session: {risk_report.get('session_duration', 'Unknown')}\n"
+            risk_text += f"Daily Trades: {risk_report.get('daily_trades', 0)}/{risk_report.get('max_daily_trades', 0)}\n"
+            risk_text += f"Daily P&L: ${risk_report.get('daily_profit', 0):.2f} ({risk_report.get('daily_profit_percent', 0):.1f}%)\n"
+            risk_text += f"Max Equity: ${risk_report.get('max_equity', 0):,.2f}\n"
+
+            # Color code based on performance
+            daily_profit_percent = risk_report.get('daily_profit_percent', 0)
+            if daily_profit_percent > 0:
+                self.risk_text.setStyleSheet("color: green;")
+            elif daily_profit_percent < -2:
+                self.risk_text.setStyleSheet("color: red;")
+            else:
+                self.risk_text.setStyleSheet("color: white;")
+
+            self.risk_text.setText(risk_text)
+
+        except Exception as e:
+            self.risk_text.setText(f"Risk monitor error: {str(e)}")
