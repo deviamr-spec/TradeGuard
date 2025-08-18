@@ -1,0 +1,72 @@
+22:52:09 | INFO | 🔧 Logging initialized - Level: INFO, File: True
+22:52:09 | INFO | 🖥️ Platform: win32
+22:52:09 | INFO | 🐍 Python: 3.13.5
+22:52:09 | INFO | 📂 Working Directory: C:\Users\pras\Desktop\TradeGuard
+22:52:09 | INFO | 🚀 Starting MT5 Trading Bot...
+22:52:09 | INFO | 🔍 Running startup diagnostics...
+22:52:09 | INFO | 🔍 Running startup diagnostics...
+22:52:09 | INFO | 🔍 Starting system diagnostics...
+22:52:09 | INFO | 🔄 Running check 1/10: System Info
+22:52:09 | INFO | ✅ System Info: PASSED
+22:52:09 | INFO | 🔄 Running check 2/10: Python Environment
+22:52:09 | INFO | ✅ Python Environment: PASSED
+22:52:09 | INFO | 🔄 Running check 3/10: Dependencies
+22:52:09 | ERROR | ❌ Dependencies: FAILED - Missing required packages: MetaTrader5
+22:52:09 | INFO | 🔄 Running check 4/10: MT5 Installation
+22:52:12 | INFO | ✅ MT5 Installation: PASSED
+22:52:12 | INFO | 🔄 Running check 5/10: Network Connectivity
+22:52:23 | WARNING | ⚠️ Network Connectivity: WARNING - Partial network connectivity
+22:52:23 | INFO | 🔄 Running check 6/10: Disk Space
+22:52:23 | INFO | ✅ Disk Space: PASSED
+22:52:23 | INFO | 🔄 Running check 7/10: Memory
+22:52:23 | INFO | ✅ Memory: PASSED
+22:52:23 | INFO | 🔄 Running check 8/10: Permissions
+22:52:23 | INFO | ✅ Permissions: PASSED
+22:52:23 | INFO | 🔄 Running check 9/10: MT5 Process
+22:52:24 | INFO | ✅ MT5 Process: PASSED
+22:52:24 | INFO | 🔄 Running check 10/10: Trading Account
+22:52:24 | WARNING | ⚠️ Trading Account: WARNING - DEMO account detected - Bot is configured for LIVE trading
+22:52:24 | INFO | 🏁 Diagnostics completed in 14.57s
+22:52:24 | INFO | 📊 Health Score: 70.0% (7/10 checks passed)
+22:52:24 | WARNING | ⚠️ System degraded (Score: 70.0%)
+22:52:24 | WARNING | 🔧 Consider resolving these warnings:
+22:52:24 | WARNING |    • Network Connectivity: Partial network connectivity
+22:52:24 | WARNING |    • Trading Account: DEMO account detected - Bot is configured for LIVE trading
+22:52:24 | INFO | ✅ Continuing with degraded system status
+22:52:24 | INFO | 🔌 Connecting to MetaTrader 5...
+22:52:25 | INFO | 🔌 Connecting to MetaTrader 5...
+22:52:25 | INFO | 🔄 Trying connection method 1...
+22:52:25 | INFO | ✅ MT5 connected using method 1
+22:52:25 | INFO | 📊 Account: 273631674
+22:52:25 | INFO | 💰 Balance: $4,315,335.58
+22:52:25 | INFO | 📈 Equity: $4,315,335.58
+22:52:25 | INFO | 🏦 Server: Exness-MT5Trial6
+22:52:25 | INFO | ✅ Trading is allowed
+22:52:25 | INFO | ✅ MT5 client connected successfully
+22:52:25 | INFO | ⚙️ Initializing trade engine...
+22:52:25 | INFO | 📊 Enhanced Scalping strategy initialized:
+22:52:25 | INFO |    EMA Fast: 12, EMA Slow: 26
+22:52:25 | INFO |    RSI Period: 14
+22:52:25 | INFO | 🛡️ Risk Manager initialized:
+22:52:25 | INFO |    Risk per trade: 1.0%
+22:52:25 | INFO |    Max daily loss: 5.0%
+22:52:25 | INFO |    Max drawdown: 10.0%
+22:52:25 | INFO |    Max positions: 5
+22:52:25 | INFO | 📊 Reporting Manager initialized
+22:52:25 | INFO | ⚙️ Trade Engine initialized:
+22:52:25 | INFO |    Symbols: ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD']
+22:52:25 | INFO |    Timeframe: M1
+22:52:25 | INFO |    Update interval: 1.0s
+22:52:25 | INFO | 🖥️ Launching GUI...
+22:52:25 | ERROR | ❌ Right panel creation error: 'QTextEdit' object has no attribute 'setMaximumBlockCount'
+22:52:25 | INFO | ✅ GUI layout initialized
+22:52:25 | INFO | 🖥️ Main GUI window initialized
+22:52:25 | INFO | ✅ Trading bot initialized successfully
+22:52:27 | INFO | 🎯 LIVE TRADING BOT is now running...
+22:53:01 | INFO | 💼 Risk session initialized with balance: $4,315,335.58
+22:53:01 | INFO | 📈 Reporting session initialized for account 273631674
+22:53:01 | INFO | 🔄 Trade engine loop started
+22:53:01 | INFO | 🚀 Trade Engine started successfully
+22:53:01 | INFO | ✅ Auto-detected symbol: EURUSDm for EURUSD
+22:53:02 | INFO | ✅ Auto-detected symbol: EURUSDm for EURUSD
+22:53:02 | ERROR | ❌ Indicator calculation error: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
