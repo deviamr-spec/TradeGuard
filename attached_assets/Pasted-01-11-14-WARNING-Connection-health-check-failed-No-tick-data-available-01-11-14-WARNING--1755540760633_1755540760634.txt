@@ -1,0 +1,56 @@
+01:11:14 | WARNING | ⚠️ Connection health check failed: No tick data available
+01:11:14 | WARNING | ⚠️ MT5 connection unhealthy, attempting reconnection...
+01:11:14 | WARNING | 🔄 Connection unhealthy, attempting auto-reconnection...
+01:11:14 | INFO | 🔄 Reconnection attempt 1/5 in 2s...
+01:11:16 | INFO | 🔄 Connection attempt 1/3
+01:11:16 | INFO | 🔌 Connecting to MetaTrader 5...
+01:11:16 | INFO | ✅ MT5 connected using simple method
+01:11:16 | INFO | 📊 Account: 273631674
+01:11:16 | INFO | 💰 Balance: $4,315,335.58
+01:11:16 | INFO | 📈 Equity: $4,315,335.58
+01:11:16 | INFO | 🏦 Server: Exness-MT5Trial6
+01:11:16 | INFO | ✅ Trading is allowed
+01:11:16 | INFO | ✅ MT5 client connected successfully (attempt 1)
+01:11:16 | INFO | ✅ Auto-reconnection successful!
+01:11:16 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+01:11:16 | INFO | ✅ Symbol detected: EURUSD -> EURUSDm
+01:11:16 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+01:11:16 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+01:11:16 | INFO | ✅ Symbol detected: GBPUSD -> GBPUSDm
+01:11:16 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+01:11:16 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+01:11:16 | INFO | ✅ Symbol detected: USDJPY -> USDJPYm
+01:11:16 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+01:11:16 | INFO | ✅ Symbol detected: AUDUSD -> AUDUSDm
+01:11:16 | INFO | ✅ Symbol detected: AUDUSD -> AUDUSDm
+01:11:16 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+01:11:16 | INFO | ✅ Symbol detected: USDCAD -> USDCADm
+01:11:16 | INFO | ✅ Symbol detected: USDCAD -> USDCADm
+01:11:16 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+01:11:16 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+01:11:16 | INFO | ✅ Symbol detected: XAUUSD -> XAUUSDm
+01:11:16 | INFO | ✅ Strategy initialized: EMA(12/26), RSI(14)
+01:11:16 | INFO | 🔄 Connection attempt 1/3
+01:11:17 | WARNING | ⚠️ Symbol not found: EURUSD
+01:11:17 | WARNING | ⚠️ Symbol not found: GBPUSD
+01:11:17 | WARNING | ⚠️ Symbol not found: USDJPY
+01:11:17 | WARNING | ⚠️ Symbol not found: AUDUSD
+01:11:17 | WARNING | ⚠️ Symbol not found: USDCAD
+01:11:17 | WARNING | ⚠️ Symbol not found: XAUUSD
+01:11:17 | WARNING | ⚠️ Connection health check failed: No account info
+01:11:17 | WARNING | ⚠️ MT5 connection unhealthy, attempting reconnection...
+01:11:17 | WARNING | 🔄 Connection unhealthy, attempting auto-reconnection...
+01:11:17 | INFO | 🔄 Reconnection attempt 1/5 in 2s...
+01:11:17 | INFO | 🔌 Connecting to MetaTrader 5...
+01:11:17 | INFO | ✅ MT5 connected using simple method
+01:11:17 | INFO | 📊 Account: 273631674
+01:11:17 | INFO | 💰 Balance: $4,315,335.58
+01:11:17 | INFO | 📈 Equity: $4,315,335.58
+01:11:17 | INFO | 🏦 Server: Exness-MT5Trial6
+01:11:17 | INFO | ✅ Trading is allowed
+01:11:17 | INFO | ✅ MT5 client connected successfully (attempt 1)
+01:11:17 | INFO | ✅ Auto-reconnection successful!
+01:11:17 | INFO | ✅ Reconnection successful
+01:11:17 | WARNING | ⚠️ Connection health check failed: No tick data available
+01:11:17 | WARNING | ⚠️ MT5 connection unhealthy, attempting reconnection...
+01:11:17 | WARNING | 🔄 Connection unhealthy, attempting auto-reconnection...
