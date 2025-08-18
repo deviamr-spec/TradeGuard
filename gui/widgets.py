@@ -166,9 +166,14 @@ class TradingControlWidget(QGroupBox):
         symbol_layout = QHBoxLayout()
         symbol_layout.addWidget(QLabel("Symbols:"))
         self.symbol_combo = QComboBox()
-        self.symbol_combo.addItems(["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "XAGUSD"])
+        self.symbol_combo.addItems(["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "XAGUSD", "BTCUSD", "ETHUSD"])
         self.symbol_combo.setEditable(True)
         symbol_layout.addWidget(self.symbol_combo)
+        
+        self.add_symbol_btn = QPushButton("Add Symbol")
+        self.add_symbol_btn.clicked.connect(self.add_symbol)
+        symbol_layout.addWidget(self.add_symbol_btn)
+        
         layout.addLayout(symbol_layout)
 
         # Trading parameters
@@ -203,8 +208,28 @@ class TradingControlWidget(QGroupBox):
         params_group.setLayout(params_layout)
         layout.addWidget(params_group)
 
+        # Strategy settings
+        strategy_group = QGroupBox("Strategy Settings")
+        strategy_layout = QGridLayout()
+        
+        # Min confidence
+        strategy_layout.addWidget(QLabel("Min Confidence %:"), 0, 0)
+        self.min_confidence_spin = QDoubleSpinBox()
+        self.min_confidence_spin.setRange(50.0, 95.0)
+        self.min_confidence_spin.setValue(75.0)
+        self.min_confidence_spin.setDecimals(1)
+        strategy_layout.addWidget(self.min_confidence_spin, 0, 1)
+        
+        # Auto execute
+        self.auto_execute_check = QCheckBox("Auto Execute High Confidence Signals")
+        self.auto_execute_check.setChecked(True)
+        strategy_layout.addWidget(self.auto_execute_check, 1, 0, 1, 2)
+        
+        strategy_group.setLayout(strategy_layout)
+        layout.addWidget(strategy_group)
+
         # Auto trading options
-        options_group = QGroupBox("Options")
+        options_group = QGroupBox("Live Trading Options")
         options_layout = QVBoxLayout()
 
         self.auto_lot_check = QCheckBox("Auto Lot Sizing")
@@ -214,6 +239,11 @@ class TradingControlWidget(QGroupBox):
         self.news_filter_check = QCheckBox("News Filter")
         self.news_filter_check.setChecked(True)
         options_layout.addWidget(self.news_filter_check)
+        
+        self.live_trading_check = QCheckBox("⚠️ LIVE TRADING ENABLED")
+        self.live_trading_check.setChecked(False)
+        self.live_trading_check.setStyleSheet("QCheckBox { color: red; font-weight: bold; }")
+        options_layout.addWidget(self.live_trading_check)
 
         options_group.setLayout(options_layout)
         layout.addWidget(options_group)
@@ -272,12 +302,27 @@ class TradingControlWidget(QGroupBox):
         except Exception as e:
             self.logger.error(f"❌ Emergency close error: {str(e)}")
 
+    def add_symbol(self):
+        """Add a new symbol to the list."""
+        try:
+            symbol = self.symbol_combo.currentText().strip().upper()
+            if symbol and symbol not in [self.symbol_combo.itemText(i) for i in range(self.symbol_combo.count())]:
+                self.symbol_combo.addItem(symbol)
+                self.symbol_combo.setCurrentText(symbol)
+                
+        except Exception as e:
+            self.logger.error(f"❌ Add symbol error: {str(e)}")
+
     def update_status(self):
         """Update trading status."""
         try:
             if self.trade_engine.running and self.trade_engine.trading_enabled:
-                self.status_label.setText("Status: 🟢 Trading Active")
-                self.status_label.setStyleSheet("color: green;")
+                if self.live_trading_check.isChecked():
+                    self.status_label.setText("Status: 🔴 LIVE TRADING ACTIVE")
+                    self.status_label.setStyleSheet("color: red; font-weight: bold;")
+                else:
+                    self.status_label.setText("Status: 🟡 Monitoring Only")
+                    self.status_label.setStyleSheet("color: orange;")
             elif self.trade_engine.running:
                 self.status_label.setText("Status: 🟡 Monitoring")
                 self.status_label.setStyleSheet("color: orange;")

@@ -51,7 +51,8 @@ class TradingBotConsoleDemo:
             "margin_level": 0.0,
             "profit": 0.0,
             "currency": "USD",
-            "trade_allowed": True
+            "trade_allowed": True,
+            "leverage": 100
         }
 
         # Enhanced symbol list with precious metals
@@ -303,7 +304,17 @@ class TradingBotConsoleDemo:
                 base_close = current_price_info['bid']
                 # Simulate some price variation
                 prices = [base_close * (1 + random.uniform(-0.0005, 0.0005)) for _ in range(50)]
-                df = pd.DataFrame({'close': prices}, index=dates)
+                highs = [price * (1 + random.uniform(0, 0.0002)) for price in prices]
+                lows = [price * (1 - random.uniform(0, 0.0002)) for price in prices]
+                opens = [base_close * (1 + random.uniform(-0.0003, 0.0003)) for _ in range(50)]
+                
+                df = pd.DataFrame({
+                    'open': opens,
+                    'high': highs,
+                    'low': lows,
+                    'close': prices,
+                    'tick_volume': [random.randint(50, 200) for _ in range(50)]
+                }, index=dates)
 
                 signal_result = self.strategy.generate_signal(df, symbol)
 

@@ -55,8 +55,12 @@ class TradingBotApplication:
             mt5_connected = self.mt5_client.connect()
             
             if not mt5_connected:
-                self.logger.warning("⚠️ MT5 connection failed - running in demo mode")
-                self.logger.warning("💡 Demo mode will show simulated trading data")
+                self.logger.error("❌ MT5 connection failed - LIVE TRADING REQUIRES MT5 CONNECTION")
+                self.logger.error("💡 This bot is configured for LIVE TRADING with real money")
+                self._show_error("MT5 Connection Required", 
+                    "This bot requires MetaTrader 5 connection for live trading.\n"
+                    "Please ensure MT5 is installed and running with live account.")
+                return False
                 
             # Initialize trade engine
             self.logger.info("⚙️ Initializing trade engine...")
@@ -97,17 +101,40 @@ class TradingBotApplication:
             msg.setText(message)
             msg.exec_()
     
+    def _show_live_trading_warning(self):
+        """Show live trading warning dialog."""
+        if self.qt_app:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle("🚨 LIVE TRADING WARNING")
+            msg.setText(
+                "⚠️ WARNING: LIVE TRADING WITH REAL MONEY ⚠️\n\n"
+                "This bot will trade with REAL MONEY on your LIVE trading account.\n"
+                "You can lose significant amounts of money.\n\n"
+                "Make sure you:\n"
+                "• Have tested the strategy thoroughly\n"
+                "• Understand the risks involved\n"
+                "• Have proper risk management settings\n"
+                "• Monitor the bot continuously\n\n"
+                "USE AT YOUR OWN RISK!"
+            )
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
+    
     def run(self) -> int:
         """Run the main application loop."""
         try:
             if not self.initialize():
                 return 1
                 
+            # Show live trading warning
+            self._show_live_trading_warning()
+            
             # Show main window
             self.main_window.show()
             
             # Start Qt event loop
-            self.logger.info("🎯 Trading bot is now running...")
+            self.logger.info("🎯 LIVE TRADING BOT is now running...")
             return self.qt_app.exec_()
             
         except KeyboardInterrupt:

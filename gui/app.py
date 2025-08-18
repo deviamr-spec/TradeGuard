@@ -118,11 +118,11 @@ class MainWindow(QMainWindow):
             painter.drawText(pixmap.rect(), Qt.AlignCenter, "MT5")
             painter.end()
 
-            return pixmap
+            return QIcon(pixmap)
 
         except Exception as e:
             self.logger.error(f"❌ Icon creation error: {str(e)}")
-            return QPixmap()
+            return QIcon()
 
     def apply_dark_theme(self):
         """Apply dark theme to the application."""
@@ -376,11 +376,6 @@ class MainWindow(QMainWindow):
             self.status_bar.addWidget(self.trading_status_label)
             self.status_bar.addPermanentWidget(self.update_time_label)
 
-            # Update timer
-            self.update_timer = QTimer()
-            self.update_timer.timeout.connect(self.update_status_bar)
-            self.update_timer.start(1000)
-
         except Exception as e:
             self.logger.error(f"❌ Status bar creation error: {str(e)}")
 
@@ -388,14 +383,19 @@ class MainWindow(QMainWindow):
         """Setup update timers."""
         try:
             # Main update timer
-            self.update_timer = QTimer()
-            self.update_timer.timeout.connect(self.update_data)
-            self.update_timer.start(1000)  # Update every second
+            self.main_update_timer = QTimer()
+            self.main_update_timer.timeout.connect(self.update_data)
+            self.main_update_timer.start(1000)  # Update every second
 
             # Fast update timer for real-time data
             self.fast_timer = QTimer()
             self.fast_timer.timeout.connect(self.fast_update)
             self.fast_timer.start(200)  # Fast update every 200ms
+
+            # Status bar update timer
+            self.status_timer = QTimer()
+            self.status_timer.timeout.connect(self.update_status_bar)
+            self.status_timer.start(1000)
 
         except Exception as e:
             self.logger.error(f"❌ Timer setup error: {str(e)}")

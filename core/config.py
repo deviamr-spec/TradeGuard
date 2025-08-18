@@ -57,6 +57,8 @@ class Config:
                 "rsi_oversold": float(os.getenv("RSI_OVERSOLD", "30.0")),
                 "take_profit_pips": float(os.getenv("TP_PIPS", "10.0")),
                 "stop_loss_pips": float(os.getenv("SL_PIPS", "5.0")),
+                "min_confidence": float(os.getenv("MIN_CONFIDENCE", "60.0")),
+                "live_trading": os.getenv("LIVE_TRADING", "true").lower() == "true",
             },
             
             # GUI Settings
