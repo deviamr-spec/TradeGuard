@@ -88,6 +88,13 @@ class TradingBotApplication:
         """Update real-time data in GUI."""
         try:
             if self.main_window and self.running:
+                # Check MT5 connection health
+                if self.mt5_client and hasattr(self.mt5_client, 'is_connection_healthy'):
+                    if not self.mt5_client.is_connection_healthy():
+                        self.logger.warning("⚠️ MT5 connection unhealthy, attempting reconnection...")
+                        if hasattr(self.mt5_client, 'auto_reconnect'):
+                            self.mt5_client.auto_reconnect()
+                
                 self.main_window.update_data()
         except Exception as e:
             self.logger.error(f"❌ Data update error: {str(e)}")

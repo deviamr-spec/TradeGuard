@@ -96,7 +96,7 @@ class ScalpingStrategy:
         try:
             if df is None:
                 raise DataValidationError(f"None DataFrame for {symbol}")
-            
+
             if df.empty:
                 raise DataValidationError(f"Empty DataFrame for {symbol}")
 
@@ -114,34 +114,34 @@ class ScalpingStrategy:
                 na_count = df[col].isna().sum()
                 if na_count > 0:
                     raise DataValidationError(f"NaN values found in {col} for {symbol}: {na_count} out of {len(df)} rows")
-                
+
                 zero_negative_count = (df[col] <= 0).sum()
                 if zero_negative_count > 0:
                     raise DataValidationError(f"Invalid price values in {col} for {symbol}: {zero_negative_count} non-positive values")
 
             # Validate OHLC logic with specific error counts
             validation_errors = []
-            
+
             high_low_errors = (df['high'] < df['low']).sum()
             if high_low_errors > 0:
                 validation_errors.append(f"High < Low: {high_low_errors} instances")
-            
+
             high_open_errors = (df['high'] < df['open']).sum()
             if high_open_errors > 0:
                 validation_errors.append(f"High < Open: {high_open_errors} instances")
-            
+
             high_close_errors = (df['high'] < df['close']).sum()
             if high_close_errors > 0:
                 validation_errors.append(f"High < Close: {high_close_errors} instances")
-            
+
             low_open_errors = (df['low'] > df['open']).sum()
             if low_open_errors > 0:
                 validation_errors.append(f"Low > Open: {low_open_errors} instances")
-            
+
             low_close_errors = (df['low'] > df['close']).sum()
             if low_close_errors > 0:
                 validation_errors.append(f"Low > Close: {low_close_errors} instances")
-                
+
             if validation_errors:
                 error_summary = "; ".join(validation_errors)
                 self.logger.error(f"❌ {symbol} OHLC validation errors: {error_summary}")
@@ -185,7 +185,7 @@ class ScalpingStrategy:
             ema = data.ewm(span=period, adjust=False).mean()
 
             if ema.isna().all():
-                raise IndicatorCalculationError(f"EMA calculation produced all NaN values")
+                raise IndicatorCalculationError("EMA calculation produced all NaN values")
 
             return ema
 
@@ -538,26 +538,19 @@ class ScalpingStrategy:
 
         except Exception as e:
             self.logger.error(f"❌ Position size calculation error: {str(e)}")
-            return symbol_info.get("volume_min", 0.01), 0.0, 0.0
+            return 0.01, 0.0, 0.0  # Fallback values
 
     def get_strategy_stats(self) -> Dict[str, Any]:
-        """Get strategy statistics with error handling."""
+        """Get strategy performance statistics."""
         try:
-            stats = self.strategy_stats.copy()
-            stats["symbols_analyzed"] = len(stats["symbols_analyzed"])
-
-            # Calculate recent signals (last 24 hours)
-            if hasattr(self, 'signal_history'):
-                recent_signals = [
-                    s for s in self.signal_history 
-                    if (datetime.now() - s.get("timestamp", datetime.now())).total_seconds() < 86400
-                ]
-                stats["recent_signals_24h"] = len(recent_signals)
-            else:
-                stats["recent_signals_24h"] = 0
-
-            return stats
-
+            return {
+                "name": "Scalping Strategy",
+                "signals_generated": getattr(self, 'signals_generated', 0),
+                "successful_signals": getattr(self, 'successful_signals', 0),
+                "win_rate": getattr(self, 'win_rate', 0.0),
+                "avg_confidence": getattr(self, 'avg_confidence', 0.0),
+                "last_signal_time": getattr(self, 'last_signal_time', None)
+            }
         except Exception as e:
             self.logger.error(f"❌ Strategy stats error: {str(e)}")
-            return {"no_data": True, "error": str(e)}
+            return {"name": "Scalping Strategy", "error": str(e)}

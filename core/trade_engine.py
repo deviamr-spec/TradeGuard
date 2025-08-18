@@ -322,6 +322,9 @@ class TradeEngine:
                         time.sleep(1)
 
                 if result:
+                    # Get order/ticket from result
+                    order_ticket = result.get("ticket", result.get("order", 0))
+                    
                     # Log successful trade
                     trade_data = {
                         "symbol": actual_symbol,
@@ -331,8 +334,7 @@ class TradeEngine:
                         "price": current_price,
                         "sl": stop_loss,
                         "tp": take_profit,
-                        "order": result["order"],
-                        "deal": result["deal"],
+                        "ticket": order_ticket,
                         "comment": order_request["comment"],
                         "confidence": signal["confidence"],
                         "market_context": signal.get("market_context", {})
@@ -342,7 +344,7 @@ class TradeEngine:
                     self.risk_manager.on_trade_executed(result)
 
                     # Track position with enhanced data
-                    self.active_positions[result["order"]] = {
+                    self.active_positions[order_ticket] = {
                         "symbol": actual_symbol,
                         "original_symbol": symbol,
                         "type": signal["signal"],
@@ -384,12 +386,14 @@ class TradeEngine:
                     start_date = end_date - timedelta(days=1)
                     history = self.mt5_client.get_trade_history(start_date, end_date)
                     for trade in history:
-                        if trade["order"] == order_id:
+                        # Check both ticket and order fields for matching
+                        trade_ticket = trade.get("ticket", trade.get("order", 0))
+                        if trade_ticket == order_id:
                             outcome_data = {
                                 "exit_price": trade["price"],
                                 "profit": trade["profit"],
-                                "commission": trade["commission"],
-                                "swap": trade["swap"]
+                                "commission": trade.get("commission", 0),
+                                "swap": trade.get("swap", 0)
                             }
                             self.reporting.update_trade_outcome(order_id, outcome_data)
                             break

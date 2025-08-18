@@ -16,10 +16,10 @@ from utils.logging_setup import get_logger
 class ReportingManager:
     """Enhanced reporting and analytics system."""
 
-    def __init__(self, mt5_client, config: Dict[str, Any]):
+    def __init__(self, mt5_client=None, config: Dict[str, Any] = None):
         self.logger = get_logger(__name__)
         self.mt5_client = mt5_client
-        self.config = config
+        self.config = config or {}
 
         # Reporting configuration
         self.reports_dir = config.get('reports_dir', 'reports')

@@ -39,7 +39,7 @@ class TradingBotConsoleDemo:
         self.trade_engine = None
         self.strategy = ScalpingStrategy()
         self.risk_manager = RiskManager()
-        self.reporting = ReportingManager()
+        self.reporting = ReportingManager(None, {})
 
         # Mock account info with all required fields
         self.demo_account = {

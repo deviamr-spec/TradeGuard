@@ -83,18 +83,18 @@ class AccountInfoWidget(QGroupBox):
             # Update labels with account information
             self.login_label.setText(f"Login: {account_info.get('login', 'N/A')}")
             self.server_label.setText(f"Server: {account_info.get('server', 'N/A')}")
-            
+
             balance = account_info.get('balance', 0.0)
             equity = account_info.get('equity', 0.0)
             margin = account_info.get('margin', 0.0)
             free_margin = account_info.get('free_margin', 0.0)
             margin_level = account_info.get('margin_level', 0.0)
-            
+
             self.balance_label.setText(f"Balance: ${balance:,.2f}")
             self.equity_label.setText(f"Equity: ${equity:,.2f}")
             self.margin_label.setText(f"Margin: ${margin:,.2f}")
             self.free_margin_label.setText(f"Free Margin: ${free_margin:,.2f}")
-            
+
             if margin_level > 0:
                 self.margin_level_label.setText(f"Margin Level: {margin_level:.2f}%")
             else:
@@ -128,31 +128,31 @@ class TradingControlWidget(QGroupBox):
 
         # Control buttons
         button_layout = QHBoxLayout()
-        
+
         self.start_btn = QPushButton("▶️ Start Trading")
         self.start_btn.clicked.connect(self.start_trading)
         self.start_btn.setStyleSheet("background-color: #28a745; color: white; padding: 8px;")
-        
+
         self.stop_btn = QPushButton("⏹️ Stop Trading")
         self.stop_btn.clicked.connect(self.stop_trading)
         self.stop_btn.setStyleSheet("background-color: #dc3545; color: white; padding: 8px;")
         self.stop_btn.setEnabled(False)
-        
+
         button_layout.addWidget(self.start_btn)
         button_layout.addWidget(self.stop_btn)
         layout.addLayout(button_layout)
 
         # Emergency controls
         emergency_layout = QHBoxLayout()
-        
+
         self.emergency_stop_btn = QPushButton("🚨 Emergency Stop")
         self.emergency_stop_btn.clicked.connect(self.emergency_stop)
         self.emergency_stop_btn.setStyleSheet("background-color: #dc3545; color: white; font-weight: bold; padding: 8px;")
-        
+
         self.close_all_btn = QPushButton("🔒 Close All Positions")
         self.close_all_btn.clicked.connect(self.close_all_positions)
         self.close_all_btn.setStyleSheet("background-color: #fd7e14; color: white; padding: 8px;")
-        
+
         emergency_layout.addWidget(self.emergency_stop_btn)
         emergency_layout.addWidget(self.close_all_btn)
         layout.addLayout(emergency_layout)
@@ -262,7 +262,7 @@ class RiskMonitorWidget(QGroupBox):
         try:
             # Get risk metrics
             metrics = self.risk_manager.get_risk_metrics()
-            
+
             daily_loss = metrics.get('daily_loss', 0.0)
             daily_loss_pct = metrics.get('daily_loss_percentage', 0.0)
             max_drawdown = metrics.get('max_drawdown_percentage', 0.0)
@@ -325,7 +325,7 @@ class PerformanceMonitorWidget(QGroupBox):
         try:
             # Get performance metrics from reporting manager
             metrics = self.trade_engine.reporting.get_performance_metrics()
-            
+
             total_trades = metrics.get('total_trades', 0)
             win_rate = metrics.get('win_rate', 0.0)
             total_profit = metrics.get('total_profit', 0.0)
@@ -336,17 +336,17 @@ class PerformanceMonitorWidget(QGroupBox):
             # Update labels
             self.total_trades_label.setText(f"Total Trades: {total_trades}")
             self.win_rate_label.setText(f"Win Rate: {win_rate:.1f}%")
-            
+
             profit_color = "green" if total_profit >= 0 else "red"
             self.total_profit_label.setText(f"Total Profit: ${total_profit:.2f}")
             self.total_profit_label.setStyleSheet(f"color: {profit_color}; font-weight: bold;")
-            
+
             self.best_trade_label.setText(f"Best Trade: ${best_trade:.2f}")
             self.best_trade_label.setStyleSheet("color: green;")
-            
+
             self.worst_trade_label.setText(f"Worst Trade: ${worst_trade:.2f}")
             self.worst_trade_label.setStyleSheet("color: red;")
-            
+
             avg_color = "green" if avg_trade >= 0 else "red"
             self.avg_trade_label.setText(f"Avg Trade: ${avg_trade:.2f}")
             self.avg_trade_label.setStyleSheet(f"color: {avg_color};")
@@ -371,15 +371,15 @@ class MarketDataWidget(QGroupBox):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["Symbol", "Bid", "Ask", "Spread", "Time"])
-        
+
         # Set table properties
         header = self.table.horizontalHeader()
         header.setStretchLastSection(True)
         header.setSectionResizeMode(QHeaderView.Stretch)
-        
+
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        
+
         layout.addWidget(self.table)
         self.setLayout(layout)
 
@@ -393,24 +393,24 @@ class MarketDataWidget(QGroupBox):
 
             for row, symbol in enumerate(self.symbols):
                 tick_data = self.mt5_client.get_tick_data(symbol)
-                
+
                 if tick_data:
                     # Symbol
                     self.table.setItem(row, 0, QTableWidgetItem(tick_data["symbol"]))
-                    
+
                     # Bid
                     bid_item = QTableWidgetItem(f"{tick_data['bid']:.5f}")
                     self.table.setItem(row, 1, bid_item)
-                    
+
                     # Ask
                     ask_item = QTableWidgetItem(f"{tick_data['ask']:.5f}")
                     self.table.setItem(row, 2, ask_item)
-                    
+
                     # Spread
                     spread_pips = tick_data['spread'] * 10000  # Convert to pips
                     spread_item = QTableWidgetItem(f"{spread_pips:.1f}")
                     self.table.setItem(row, 3, spread_item)
-                    
+
                     # Time
                     time_str = tick_data['time'].strftime("%H:%M:%S")
                     self.table.setItem(row, 4, QTableWidgetItem(time_str))
@@ -443,15 +443,15 @@ class PositionsWidget(QGroupBox):
         self.table.setHorizontalHeaderLabels([
             "Ticket", "Symbol", "Type", "Volume", "Price", "Current", "Profit"
         ])
-        
+
         # Set table properties
         header = self.table.horizontalHeader()
         header.setStretchLastSection(True)
         header.setSectionResizeMode(QHeaderView.Stretch)
-        
+
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        
+
         layout.addWidget(self.table)
 
         # Summary label
@@ -477,10 +477,10 @@ class PositionsWidget(QGroupBox):
             for row, position in enumerate(positions):
                 # Ticket
                 self.table.setItem(row, 0, QTableWidgetItem(str(position["ticket"])))
-                
+
                 # Symbol
                 self.table.setItem(row, 1, QTableWidgetItem(position["symbol"]))
-                
+
                 # Type
                 type_item = QTableWidgetItem(position["type"])
                 if position["type"] == "BUY":
@@ -488,16 +488,16 @@ class PositionsWidget(QGroupBox):
                 else:
                     type_item.setBackground(QColor(150, 0, 0))
                 self.table.setItem(row, 2, type_item)
-                
+
                 # Volume
                 self.table.setItem(row, 3, QTableWidgetItem(f"{position['volume']:.2f}"))
-                
+
                 # Price
                 self.table.setItem(row, 4, QTableWidgetItem(f"{position['price_open']:.5f}"))
-                
+
                 # Current Price
                 self.table.setItem(row, 5, QTableWidgetItem(f"{position['price_current']:.5f}"))
-                
+
                 # Profit
                 profit = position["profit"]
                 profit_item = QTableWidgetItem(f"${profit:.2f}")
@@ -506,7 +506,7 @@ class PositionsWidget(QGroupBox):
                 else:
                     profit_item.setForeground(QColor(150, 0, 0))
                 self.table.setItem(row, 6, profit_item)
-                
+
                 total_profit += profit
 
             # Update summary
@@ -614,6 +614,7 @@ class EquityChartWidget(QGroupBox):
         super().__init__("📈 Equity Curve")
         self.init_ui()
         self.equity_data = []
+        self.max_points = 100 # Added max_points attribute
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -622,37 +623,52 @@ class EquityChartWidget(QGroupBox):
         self.chart_label = QLabel("Equity Chart")
         self.chart_label.setAlignment(Qt.AlignCenter)
         self.chart_label.setStyleSheet("border: 1px solid gray; min-height: 200px;")
-        
+
         layout.addWidget(self.chart_label)
         self.setLayout(layout)
 
-    def update_data(self, equity_value: float):
-        """Update equity curve with new data point."""
+    def update_chart(self):
+        """Internal method to update the chart display."""
+        if not self.equity_data:
+            self.chart_label.setText("Equity Chart (No data)")
+            self.chart_label.setStyleSheet("border: 1px solid gray; min-height: 200px; color: white;")
+            return
+
+        latest_equity = self.equity_data[-1]
+        first_equity = self.equity_data[0]
+        change = latest_equity - first_equity
+        change_pct = (change / first_equity * 100) if first_equity != 0 else 0
+
+        color = "green" if change >= 0 else "red"
+        self.chart_label.setText(
+            f"Current Equity: ${latest_equity:,.2f}\n"
+            f"Change: ${change:+,.2f} ({change_pct:+.2f}%)\n"
+            f"Data Points: {len(self.equity_data)}"
+        )
+        self.chart_label.setStyleSheet(
+            f"border: 1px solid gray; min-height: 200px; color: {color}; "
+            "font-weight: bold; font-size: 14px;"
+        )
+
+    def update_data(self, equity_value=None):
+        """Update chart with new equity value."""
         try:
-            timestamp = datetime.now()
-            self.equity_data.append((timestamp, equity_value))
+            if equity_value is None:
+                # Try to get equity from parent if available
+                if hasattr(self.parent(), 'mt5_client') and self.parent().mt5_client:
+                    account_info = self.parent().mt5_client.get_account_info()
+                    if account_info:
+                        equity_value = account_info.get('equity', 0.0)
+                    else:
+                        equity_value = 0.0
+                else:
+                    equity_value = 0.0
 
-            # Keep only last 100 data points
-            if len(self.equity_data) > 100:
-                self.equity_data = self.equity_data[-100:]
+            self.equity_data.append(equity_value)
+            if len(self.equity_data) > self.max_points:
+                self.equity_data.pop(0)
 
-            # Update chart display (simplified text display)
-            if self.equity_data:
-                latest_equity = self.equity_data[-1][1]
-                first_equity = self.equity_data[0][1] if len(self.equity_data) > 1 else latest_equity
-                change = latest_equity - first_equity
-                change_pct = (change / first_equity * 100) if first_equity != 0 else 0
-
-                color = "green" if change >= 0 else "red"
-                self.chart_label.setText(
-                    f"Current Equity: ${latest_equity:,.2f}\n"
-                    f"Change: ${change:+,.2f} ({change_pct:+.2f}%)\n"
-                    f"Data Points: {len(self.equity_data)}"
-                )
-                self.chart_label.setStyleSheet(
-                    f"border: 1px solid gray; min-height: 200px; color: {color}; "
-                    "font-weight: bold; font-size: 14px;"
-                )
+            self.update_chart()
 
         except Exception as e:
-            self.chart_label.setText(f"Chart Error: {str(e)}")
+            print(f"Equity chart update error: {e}")

@@ -568,6 +568,40 @@ class MT5Client:
             self.logger.error(f"❌ Close position error: {str(e)}")
             return False
 
+    def get_symbol_info(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Get symbol information with auto-detection."""
+        try:
+            if not self.connected or not mt5:
+                return None
+
+            detected_symbol = self.auto_detect_symbol(symbol)
+            symbol_info = mt5.symbol_info(detected_symbol)
+            
+            if not symbol_info:
+                return None
+
+            return {
+                "symbol": detected_symbol,
+                "point": float(symbol_info.point),
+                "digits": symbol_info.digits,
+                "spread": int(symbol_info.spread),
+                "volume_min": float(symbol_info.volume_min),
+                "volume_max": float(symbol_info.volume_max),
+                "volume_step": float(symbol_info.volume_step),
+                "currency_base": symbol_info.currency_base,
+                "currency_profit": symbol_info.currency_profit,
+                "currency_margin": symbol_info.currency_margin,
+                "contract_size": float(symbol_info.trade_contract_size)
+            }
+
+        except Exception as e:
+            self.logger.error(f"❌ Symbol info error for {symbol}: {str(e)}")
+            return None
+
+    def get_current_price(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Get current price data for symbol (alias for get_tick_data)."""
+        return self.get_tick_data(symbol)
+
     def get_trade_history(self, from_date: datetime, to_date: datetime) -> List[Dict[str, Any]]:
         """Get trading history - FIXED method name."""
         try:
@@ -582,6 +616,7 @@ class MT5Client:
             for deal in deals:
                 deal_data = {
                     "ticket": deal.ticket,
+                    "order": deal.order,  # Add order field for tracking
                     "symbol": deal.symbol,
                     "type": "BUY" if deal.type == mt5.DEAL_TYPE_BUY else "SELL",
                     "volume": float(deal.volume),

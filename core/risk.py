@@ -16,33 +16,82 @@ class RiskManager:
     def __init__(self):
         self.logger = get_logger(__name__)
 
-        # Risk parameters
-        self.risk_per_trade = config.get("risk.risk_per_trade", 0.01)
-        self.max_daily_loss = config.get("risk.max_daily_loss", 0.05)
-        self.max_drawdown = config.get("risk.max_drawdown", 0.10)
+        # Risk parameters from config
+        self.max_risk_per_trade = config.get("risk_management.risk_per_trade", 0.02)
+        self.max_daily_loss = config.get("trading.max_daily_loss", 0.05)
+        self.max_drawdown = config.get("trading.max_drawdown", 0.10)
         self.max_positions = config.get("trading.max_positions", 5)
-        self.max_daily_trades = config.get("trading.max_daily_trades", 50)
+        self.max_spread_pips = config.get("risk_management.max_spread_pips", 3)
 
         # Session tracking
-        self.session_start_time = None
         self.session_start_balance = 0.0
-        self.session_trades = 0
-        self.session_max_equity = 0.0
-        self.daily_trades = 0
-        self.last_trade_reset = datetime.now().date()
+        self.daily_start_balance = 0.0
+        self.peak_balance = 0.0
+        self.current_drawdown = 0.0
+        self.daily_loss = 0.0
 
-        # Emergency flags
-        self.emergency_stop = False
-        self.trading_halted = False
+        # Trade tracking
+        self.trades_today = 0
+        self.max_trades_per_day = 20
+        self.losing_streak = 0
+        self.max_losing_streak = 5
 
-        # Thread safety
-        self.lock = threading.Lock()
+        self.logger.info("✅ Risk Manager initialized")
 
-        self.logger.info(f"🛡️ Risk Manager initialized:")
-        self.logger.info(f"   Risk per trade: {self.risk_per_trade*100:.1f}%")
-        self.logger.info(f"   Max daily loss: {self.max_daily_loss*100:.1f}%")
-        self.logger.info(f"   Max drawdown: {self.max_drawdown*100:.1f}%")
-        self.logger.info(f"   Max positions: {self.max_positions}")
+    def get_risk_metrics(self) -> Dict[str, Any]:
+        """Get current risk metrics for monitoring."""
+        try:
+            return {
+                "max_risk_per_trade": self.max_risk_per_trade,
+                "max_daily_loss": self.max_daily_loss,
+                "max_drawdown": self.max_drawdown,
+                "current_drawdown": self.current_drawdown,
+                "daily_loss": self.daily_loss,
+                "trades_today": self.trades_today,
+                "max_trades_per_day": self.max_trades_per_day,
+                "losing_streak": self.losing_streak,
+                "max_losing_streak": self.max_losing_streak,
+                "session_start_balance": self.session_start_balance,
+                "peak_balance": self.peak_balance
+            }
+        except Exception as e:
+            self.logger.error(f"❌ Error getting risk metrics: {str(e)}")
+            return {}
+
+    def update_session_stats(self, account_info: Dict[str, Any]) -> None:
+        """Update session statistics with current account info."""
+        try:
+            current_balance = account_info.get('balance', 0.0)
+            current_equity = account_info.get('equity', 0.0)
+
+            # Initialize session start balance if not set
+            if self.session_start_balance == 0.0:
+                self.session_start_balance = current_balance
+                self.daily_start_balance = current_balance
+                self.peak_balance = current_balance
+
+            # Update peak balance
+            if current_equity > self.peak_balance:
+                self.peak_balance = current_equity
+
+            # Calculate current drawdown
+            if self.peak_balance > 0:
+                self.current_drawdown = (self.peak_balance - current_equity) / self.peak_balance
+
+            # Calculate daily loss
+            if self.daily_start_balance > 0:
+                self.daily_loss = (self.daily_start_balance - current_equity) / self.daily_start_balance
+
+        except Exception as e:
+            self.logger.error(f"❌ Error updating session stats: {str(e)}")
+
+    def on_trade_executed(self, trade_result: Dict[str, Any]) -> None:
+        """Update risk tracking when a trade is executed."""
+        try:
+            self.trades_today += 1
+            self.logger.debug(f"Trade executed, total today: {self.trades_today}")
+        except Exception as e:
+            self.logger.error(f"❌ Error updating trade execution stats: {str(e)}")
 
     def initialize_session(self, starting_balance: float) -> None:
         """Initialize a new trading session."""
@@ -60,7 +109,7 @@ class RiskManager:
         except Exception as e:
             self.logger.error(f"❌ Risk session initialization error: {str(e)}")
 
-    def validate_trade(self, signal: Dict[str, Any], account_info: Dict[str, Any], 
+    def validate_trade(self, signal: Dict[str, Any], account_info: Dict[str, Any],
                       positions: List[Dict[str, Any]], symbol_info: Dict[str, Any]) -> Dict[str, Any]:
         """
         Validate if a trade should be allowed.
@@ -166,7 +215,7 @@ class RiskManager:
                 "warnings": []
             }
 
-    def calculate_position_size(self, account_balance: float, risk_amount: float, 
+    def calculate_position_size(self, account_balance: float, risk_amount: float,
                                stop_loss_pips: float, pip_value: float) -> float:
         """Calculate position size based on risk parameters."""
         try:
@@ -192,30 +241,34 @@ class RiskManager:
             self.logger.error(f"❌ Position size calculation error: {str(e)}")
             return config.get("risk.min_lot_size", 0.01)
 
-    def on_trade_executed(self, trade_result: Dict[str, Any]) -> None:
-        """Update counters when a trade is executed."""
-        try:
-            with self.lock:
-                self.session_trades += 1
-                self.daily_trades += 1
+    # Removed on_trade_executed from here as it was duplicated and modified above.
+    # The original on_trade_executed was:
+    # def on_trade_executed(self, trade_result: Dict[str, Any]) -> None:
+    #     """Update counters when a trade is executed."""
+    #     try:
+    #         with self.lock:
+    #             self.session_trades += 1
+    #             self.daily_trades += 1
+    #
+    #             self.logger.debug(f"📊 Trade executed: Session {self.session_trades}, Daily {self.daily_trades}")
+    #
+    #     except Exception as e:
+    #         self.logger.error(f"❌ Trade execution tracking error: {str(e)}")
 
-                self.logger.debug(f"📊 Trade executed: Session {self.session_trades}, Daily {self.daily_trades}")
-
-        except Exception as e:
-            self.logger.error(f"❌ Trade execution tracking error: {str(e)}")
-
-    def update_session_stats(self, account_info: Dict[str, Any]) -> None:
-        """Update session statistics."""
-        try:
-            with self.lock:
-                current_equity = account_info.get("equity", 0)
-
-                # Update max equity
-                if current_equity > self.session_max_equity:
-                    self.session_max_equity = current_equity
-
-        except Exception as e:
-            self.logger.error(f"❌ Session stats update error: {str(e)}")
+    # Removed update_session_stats from here as it was duplicated and modified above.
+    # The original update_session_stats was:
+    # def update_session_stats(self, account_info: Dict[str, Any]) -> None:
+    #     """Update session statistics."""
+    #     try:
+    #         with self.lock:
+    #             current_equity = account_info.get("equity", 0)
+    #
+    #             # Update max equity
+    #             if current_equity > self.session_max_equity:
+    #                 self.session_max_equity = current_equity
+    #
+    #     except Exception as e:
+    #         self.logger.error(f"❌ Session stats update error: {str(e)}")
 
     def emergency_stop_check(self, account_info: Dict[str, Any]) -> bool:
         """Check if emergency stop should be triggered."""
