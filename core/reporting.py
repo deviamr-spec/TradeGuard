@@ -1,4 +1,3 @@
-
 """
 Reporting and Performance Tracking Module.
 Handles trade logging, performance metrics, and report generation.
@@ -16,10 +15,10 @@ from utils.logging_setup import get_logger
 
 class ReportingManager:
     """Comprehensive reporting and performance tracking system."""
-    
+
     def __init__(self):
         self.logger = get_logger(__name__)
-        
+
         # Initialize report storage
         self.trades_log = []
         self.equity_curve = []
@@ -34,19 +33,19 @@ class ReportingManager:
             "max_equity": 0.0,
             "max_drawdown": 0.0
         }
-        
+
         # Create reports directory
         self.reports_dir = "reports"
         os.makedirs(self.reports_dir, exist_ok=True)
-        
+
         self.logger.info("📊 Reporting Manager initialized")
-    
+
     def initialize_session(self, account_info: Dict[str, Any]) -> None:
         """Initialize reporting for a new trading session."""
         try:
             self.session_start_time = datetime.now()
             starting_balance = account_info.get("balance", 0.0)
-            
+
             self.session_data.update({
                 "start_balance": starting_balance,
                 "current_balance": starting_balance,
@@ -57,19 +56,19 @@ class ReportingManager:
                 "max_equity": starting_balance,
                 "max_drawdown": 0.0
             })
-            
+
             # Initialize equity curve
             self.equity_curve = [{
                 "timestamp": self.session_start_time,
                 "equity": starting_balance,
                 "balance": starting_balance
             }]
-            
+
             self.logger.info(f"📊 Reporting session initialized with balance: ${starting_balance:,.2f}")
-            
+
         except Exception as e:
             self.logger.error(f"❌ Reporting initialization error: {str(e)}")
-    
+
     def log_trade(self, trade_data: Dict[str, Any]) -> None:
         """Log a completed trade."""
         try:
@@ -90,15 +89,15 @@ class ReportingManager:
                 "profit": None,
                 "status": "OPEN"
             }
-            
+
             self.trades_log.append(trade_entry)
             self.session_data["total_trades"] += 1
-            
+
             self.logger.info(f"📝 Trade logged: {trade_entry['symbol']} {trade_entry['type']} {trade_entry['volume']}")
-            
+
         except Exception as e:
             self.logger.error(f"❌ Trade logging error: {str(e)}")
-    
+
     def update_trade_outcome(self, order_id: int, outcome_data: Dict[str, Any]) -> None:
         """Update trade with exit information."""
         try:
@@ -112,22 +111,22 @@ class ReportingManager:
                         "exit_timestamp": datetime.now(),
                         "status": "CLOSED"
                     })
-                    
+
                     # Update session statistics
                     profit = outcome_data.get("profit", 0.0)
                     self.session_data["total_profit"] += profit
-                    
+
                     if profit > 0:
                         self.session_data["winning_trades"] += 1
                     else:
                         self.session_data["losing_trades"] += 1
-                    
+
                     self.logger.info(f"💰 Trade closed: Order {order_id}, Profit: ${profit:.2f}")
                     break
-            
+
         except Exception as e:
             self.logger.error(f"❌ Trade outcome update error: {str(e)}")
-    
+
     def add_equity_point(self, current_equity: float) -> None:
         """Add equity data point for performance tracking."""
         try:
@@ -136,34 +135,34 @@ class ReportingManager:
                 "equity": current_equity,
                 "balance": self.session_data.get("current_balance", current_equity)
             }
-            
+
             self.equity_curve.append(equity_point)
-            
+
             # Update session data
             self.session_data["current_balance"] = current_equity
-            
+
             # Track maximum equity
             if current_equity > self.session_data["max_equity"]:
                 self.session_data["max_equity"] = current_equity
-            
+
             # Calculate drawdown
             max_equity = self.session_data["max_equity"]
             current_drawdown = (max_equity - current_equity) / max_equity if max_equity > 0 else 0
             if current_drawdown > self.session_data["max_drawdown"]:
                 self.session_data["max_drawdown"] = current_drawdown
-            
+
             # Keep only last 1000 points to manage memory
             if len(self.equity_curve) > 1000:
                 self.equity_curve = self.equity_curve[-1000:]
-            
+
         except Exception as e:
             self.logger.error(f"❌ Equity tracking error: {str(e)}")
-    
+
     def calculate_performance_metrics(self) -> Dict[str, Any]:
         """Calculate comprehensive performance metrics."""
         try:
             closed_trades = [t for t in self.trades_log if t.get("status") == "CLOSED"]
-            
+
             if not closed_trades:
                 return {
                     "total_trades": 0,
@@ -174,34 +173,34 @@ class ReportingManager:
                     "sharpe_ratio": 0.0,
                     "profit_factor": 0.0
                 }
-            
+
             # Basic metrics
             total_trades = len(closed_trades)
             winning_trades = len([t for t in closed_trades if t.get("profit", 0) > 0])
             losing_trades = len([t for t in closed_trades if t.get("profit", 0) < 0])
-            
+
             win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
-            
+
             profits = [t.get("profit", 0) for t in closed_trades]
             total_profit = sum(profits)
             avg_profit = total_profit / total_trades if total_trades > 0 else 0
-            
+
             # Advanced metrics
             winning_profits = [p for p in profits if p > 0]
             losing_profits = [p for p in profits if p < 0]
-            
+
             avg_win = sum(winning_profits) / len(winning_profits) if winning_profits else 0
             avg_loss = abs(sum(losing_profits) / len(losing_profits)) if losing_profits else 0
-            
+
             profit_factor = avg_win / avg_loss if avg_loss > 0 else 0
-            
+
             # Calculate Sharpe ratio (simplified)
             if len(profits) > 1:
                 profit_std = np.std(profits) if len(profits) > 1 else 1
                 sharpe_ratio = (avg_profit / profit_std) if profit_std > 0 else 0
             else:
                 sharpe_ratio = 0
-            
+
             return {
                 "total_trades": total_trades,
                 "winning_trades": winning_trades,
@@ -216,17 +215,76 @@ class ReportingManager:
                 "profit_factor": profit_factor,
                 "session_duration_hours": (datetime.now() - self.session_start_time).total_seconds() / 3600
             }
-            
+
         except Exception as e:
             self.logger.error(f"❌ Performance calculation error: {str(e)}")
             return {"error": str(e)}
-    
-    def generate_daily_report(self) -> str:
-        """Generate a comprehensive daily trading report."""
+
+    def calculate_sharpe_ratio(self, returns: List[float], risk_free_rate: float = 0.02) -> float:
+        """Calculate Sharpe ratio for performance evaluation."""
+        try:
+            if not returns or len(returns) < 2:
+                return 0.0
+
+            import numpy as np
+            returns_array = np.array(returns)
+            excess_returns = returns_array - (risk_free_rate / 252)  # Daily risk-free rate
+
+            if np.std(excess_returns) == 0:
+                return 0.0
+
+            return np.mean(excess_returns) / np.std(excess_returns) * np.sqrt(252)
+
+        except Exception as e:
+            self.logger.error(f"Sharpe ratio calculation error: {e}")
+            return 0.0
+
+    def calculate_max_drawdown_duration(self) -> int:
+        """Calculate maximum drawdown duration in days."""
+        try:
+            if len(self.equity_curve) < 2:
+                return 0
+
+            peak = self.equity_curve[0]['equity']
+            max_duration = 0
+            current_duration = 0
+
+            for point in self.equity_curve:
+                equity = point['equity']
+                if equity >= peak:
+                    peak = equity
+                    current_duration = 0
+                else:
+                    current_duration += 1
+                    max_duration = max(max_duration, current_duration)
+
+            return max_duration
+
+        except Exception as e:
+            self.logger.error(f"Drawdown duration calculation error: {e}")
+            return 0
+
+    def calculate_profit_factor(self) -> float:
+        """Calculate profit factor (gross profit / gross loss)."""
+        try:
+            gross_profit = sum(trade.get('profit', 0) for trade in self.trades_log if trade.get('profit', 0) > 0)
+            gross_loss = abs(sum(trade.get('profit', 0) for trade in self.trades_log if trade.get('profit', 0) < 0))
+
+            if gross_loss == 0:
+                return float('inf') if gross_profit > 0 else 0.0
+
+            return gross_profit / gross_loss
+
+        except Exception as e:
+            self.logger.error(f"Profit factor calculation error: {e}")
+            return 0.0
+
+    def generate_performance_report(self) -> str:
+        """Generate comprehensive performance report with advanced metrics."""
         try:
             metrics = self.calculate_performance_metrics()
             current_time = datetime.now()
-            
+
             report = f"""
 📊 DAILY TRADING REPORT - {current_time.strftime('%Y-%m-%d %H:%M:%S')}
 {'='*60}
@@ -236,68 +294,68 @@ class ReportingManager:
    Winning Trades:   {metrics.get('winning_trades', 0)}
    Losing Trades:    {metrics.get('losing_trades', 0)}
    Win Rate:         {metrics.get('win_rate', 0):.1f}%
-   
+
    Total Profit:     ${metrics.get('total_profit', 0):.2f}
    Average Profit:   ${metrics.get('avg_profit', 0):.2f}
    Average Win:      ${metrics.get('avg_win', 0):.2f}
    Average Loss:     ${metrics.get('avg_loss', 0):.2f}
-   
+
    Max Drawdown:     {metrics.get('max_drawdown', 0):.2f}%
    Profit Factor:    {metrics.get('profit_factor', 0):.2f}
    Sharpe Ratio:     {metrics.get('sharpe_ratio', 0):.2f}
-   
+
 📈 SESSION DATA
    Start Balance:    ${self.session_data.get('start_balance', 0):.2f}
    Current Balance:  ${self.session_data.get('current_balance', 0):.2f}
    Session Duration: {metrics.get('session_duration_hours', 0):.1f} hours
-   
+
 ⚠️ RISK METRICS
    Max Equity:       ${self.session_data.get('max_equity', 0):.2f}
    Current Drawdown: {((self.session_data.get('max_equity', 0) - self.session_data.get('current_balance', 0)) / self.session_data.get('max_equity', 1)) * 100:.2f}%
 
 📋 RECENT TRADES (Last 5)
 """
-            
+
             # Add recent trades
             recent_trades = sorted(self.trades_log, key=lambda x: x.get('timestamp', datetime.now()), reverse=True)[:5]
-            
+
             for trade in recent_trades:
                 status = trade.get('status', 'UNKNOWN')
                 profit = trade.get('profit', 0)
                 profit_str = f"${profit:.2f}" if profit is not None else "OPEN"
-                
+
                 report += f"   {trade.get('timestamp', 'N/A').strftime('%H:%M:%S')} | {trade.get('symbol', 'N/A')} {trade.get('type', 'N/A')} | {profit_str}\n"
-            
+
             return report
-            
+
         except Exception as e:
             self.logger.error(f"❌ Report generation error: {str(e)}")
             return f"Report generation failed: {str(e)}"
-    
+
     def save_session_data(self) -> bool:
         """Save session data to file."""
         try:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
+
             # Save trades log
             trades_file = os.path.join(self.reports_dir, f"trades_{timestamp}.json")
             with open(trades_file, 'w') as f:
                 json.dump(self.trades_log, f, indent=2, default=str)
-            
+
             # Save equity curve
             equity_file = os.path.join(self.reports_dir, f"equity_{timestamp}.json")
             with open(equity_file, 'w') as f:
                 json.dump(self.equity_curve, f, indent=2, default=str)
-            
+
             # Save performance metrics
             metrics_file = os.path.join(self.reports_dir, f"metrics_{timestamp}.json")
             metrics = self.calculate_performance_metrics()
             with open(metrics_file, 'w') as f:
                 json.dump(metrics, f, indent=2, default=str)
-            
+
             self.logger.info(f"💾 Session data saved to {self.reports_dir}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"❌ Session save error: {str(e)}")
             return False

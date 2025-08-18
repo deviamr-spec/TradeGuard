@@ -15,10 +15,9 @@ from PyQt5.QtWidgets import (
     QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
     QTextEdit, QProgressBar, QGroupBox, QScrollArea, QSplitter,
     QMessageBox, QStatusBar, QMenuBar, QAction, QHeaderView,
-    QFrame, QSizePolicy
+    QFrame, QSizePolicy, QApplication
 )
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal, Qt, QSize
-from PyQt5.QtGui import QFont, QPixmap, QPalette, QColor, QPainter, QPen, QIcon
 
 from core.mt5_client import MT5Client
 from core.trade_engine import TradeEngine
@@ -43,6 +42,7 @@ class MainWindow(QMainWindow):
         self.update_timer = None
         self.last_update = datetime.now()
         self.gui_thread_id = threading.current_thread().ident
+        self.progress_dialog = None # Loading indicator
 
         # Initialize UI
         self.init_ui()
@@ -368,7 +368,23 @@ class MainWindow(QMainWindow):
         """Create status bar."""
         try:
             # Status bar
-            self.status_bar = self.statusBar()
+            self.status_bar = QStatusBar()
+            self.setStatusBar(self.status_bar)
+            self.status_bar.showMessage("Ready")
+
+            # Loading indicator
+            self.progress_dialog = None
+
+            # Setup timers
+            self.update_timer = QTimer()
+            self.update_timer.timeout.connect(self.update_data)
+            self.update_timer.start(1000)  # Update every second
+
+            # Connection health timer
+            self.health_timer = QTimer()
+            self.health_timer.timeout.connect(self.check_connection_health)
+            self.health_timer.start(5000)  # Check every 5 seconds
+
             self.status_label = QLabel("Ready")
             self.connection_label = QLabel("🔴 Disconnected")
             self.connection_label.setStyleSheet("color: red;")
@@ -485,34 +501,79 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.logger.error(f"❌ Status bar update error: {str(e)}")
 
+    def show_loading_dialog(self, message: str):
+        """Show loading dialog with progress indicator."""
+        from PyQt5.QtWidgets import QProgressDialog
+        self.progress_dialog = QProgressDialog(message, None, 0, 0, self)
+        self.progress_dialog.setWindowModality(2)  # Application modal
+        self.progress_dialog.setAutoClose(False)
+        self.progress_dialog.show()
+        QApplication.processEvents()
+
+    def hide_loading_dialog(self):
+        """Hide loading dialog."""
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+
+    def check_connection_health(self):
+        """Monitor MT5 connection health."""
+        try:
+            if self.mt5_client and not self.mt5_client.is_connection_healthy():
+                self.status_bar.showMessage("⚠️ Connection Lost - Attempting Reconnection...")
+                self.connection_label.setStyleSheet("color: red;") # Update label directly
+                self.connection_label.setText("🔴 Reconnecting...")
+
+                # Attempt auto-reconnection
+                QTimer.singleShot(100, self.attempt_reconnection)
+            else:
+                if self.mt5_client and self.mt5_client.connected:
+                    self.connection_label.setStyleSheet("color: green;")
+                    self.connection_label.setText("🟢 Connected")
+                else:
+                    self.connection_label.setStyleSheet("color: red;")
+                    self.connection_label.setText("🔴 Disconnected")
+
+
+        except Exception as e:
+            self.logger.error(f"Health check error: {e}")
+
+    def attempt_reconnection(self):
+        """Attempt to reconnect to MT5."""
+        try:
+            self.show_loading_dialog("Reconnecting to MT5...")
+
+            if self.mt5_client and self.mt5_client.auto_reconnect():
+                self.status_bar.showMessage("✅ Reconnection Successful")
+                self.connection_label.setText("🟢 Connected")
+                self.connection_label.setStyleSheet("color: green;")
+            else:
+                self.status_bar.showMessage("❌ Reconnection Failed")
+                self.connection_label.setText("🔴 Disconnected")
+                self.connection_label.setStyleSheet("color: red;")
+
+        except Exception as e:
+            self.logger.error(f"Reconnection attempt error: {e}")
+        finally:
+            self.hide_loading_dialog()
+
+
     def start_trading(self):
         """Start automated trading."""
         try:
-            # Show loading dialog
-            from PyQt5.QtWidgets import QProgressDialog
-            from PyQt5.QtCore import Qt
-            
-            progress = QProgressDialog("Initializing trading engine...", "Cancel", 0, 100, self)
-            progress.setWindowModality(Qt.WindowModal)
-            progress.show()
-            progress.setValue(10)
-            
+            self.show_loading_dialog("Starting Trading Engine...")
+
             if not self.mt5_client.connected:
-                progress.close()
+                self.hide_loading_dialog()
                 QMessageBox.warning(self, "Connection Error", "MT5 is not connected!")
                 return
 
-            progress.setValue(30)
-            
             # Check connection health
             if not self.mt5_client.is_connection_healthy():
-                progress.setLabelText("Reconnecting to MT5...")
-                if not self.mt5_client.auto_reconnect():
-                    progress.close()
-                    QMessageBox.critical(self, "Connection Error", "Failed to establish healthy MT5 connection!")
-                    return
-            
-            progress.setValue(50)
+                self.hide_loading_dialog()
+                QMessageBox.critical(self, "Connection Error", "MT5 connection is not healthy!")
+                # Optionally, attempt reconnection here or prompt user
+                return
 
             reply = QMessageBox.question(
                 self,
@@ -524,32 +585,27 @@ class MainWindow(QMainWindow):
             )
 
             if reply == QMessageBox.Yes:
-                progress.setLabelText("Starting trading engine...")
-                progress.setValue(70)
-                
                 if not self.trade_engine.running:
-                    progress.setValue(90)
                     if self.trade_engine.start():
-                        progress.setValue(100)
-                        progress.close()
+                        self.hide_loading_dialog()
                         self.log_widget.add_message("🚀 Automated trading started", "INFO")
                         QMessageBox.information(self, "Success", "Trading engine started successfully!")
                     else:
-                        progress.close()
+                        self.hide_loading_dialog()
                         QMessageBox.critical(self, "Error", "Failed to start trading engine!")
                 else:
                     self.trade_engine.enable_trading()
-                    progress.setValue(100)
-                    progress.close()
+                    self.hide_loading_dialog()
                     self.log_widget.add_message("✅ Automated trading enabled", "INFO")
             else:
-                progress.close()
+                self.hide_loading_dialog()
 
         except Exception as e:
-            if 'progress' in locals():
-                progress.close()
+            if self.progress_dialog: # Ensure dialog is closed on error
+                self.hide_loading_dialog()
             self.logger.error(f"❌ Start trading error: {str(e)}")
             QMessageBox.critical(self, "Error", f"Failed to start trading:\n{str(e)}")
+
 
     def stop_trading(self):
         """Stop automated trading."""
@@ -647,6 +703,8 @@ class MainWindow(QMainWindow):
                     self.update_timer.stop()
                 if hasattr(self, 'fast_timer'):
                     self.fast_timer.stop()
+                if hasattr(self, 'health_timer'):
+                    self.health_timer.stop()
 
                 # Stop trade engine
                 if self.trade_engine.running:
