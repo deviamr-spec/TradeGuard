@@ -1,0 +1,53 @@
+# Complete Improvement Prompt for Trading Bot
+
+## Objectives
+Enhance the trading bot to ensure its reliability in auto trading, analysis, symbol detection, buy/sell order execution, and performance monitoring.
+
+## Checklist
+
+1. **Dependency Management**
+   - [ ] Ensure all required packages are installed, specifically `MetaTrader5`, `numpy`, and `pandas`.
+   - [ ] Confirm compatibility of libraries with your operating system.
+
+2. **Error Logging**
+   - [ ] Implement comprehensive logging for all functions, especially critical areas like order execution and connection checks.
+   - [ ] Ensure all errors are captured and logged, including stack traces for deeper insights.
+
+3. **Input Validation**
+   - [ ] Validate user inputs within the GUI, particularly for trading parameters (e.g., lot sizes, risk percentages).
+   - [ ] Add checks for valid symbol selection to prevent errors during trading activities.
+
+4. **Connection Management**
+   - [ ] Ensure robust logic for handling MT5 connections, including reconnection attempts with appropriate backoff strategies.
+   - [ ] Log connection statuses to keep track of connectivity.
+
+5. **Trading Logic Enhancements**
+   - [ ] Update trading logic to dynamically adjust to market conditions and user-selected strategies.
+   - [ ] Ensure that the strategy works without requiring restarts and can switch based on user interactions.
+
+6. **Performance Monitoring**
+   - [ ] Implement features to generate and display real-time performance metrics, such as profits and risk assessments, on the GUI.
+   - [ ] Ensure trading statistics are accurately reported and periodically sent to Telegram.
+
+7. **Symbol Detection and Management**
+   - [ ] Implement or improve the auto-detection mechanism for trading symbols, including testing common variations.
+   - [ ] Ensure the selected symbol is validated before any trading operation.
+
+8. **Error Handling in Trading Functions**
+   - [ ] Enhance error handling in order execution functions to gracefully recover from failures.
+   - [ ] Implement retries for failed orders, with exponential backoff.
+
+9. **Testing and Debugging**
+   - [ ] Conduct thorough unit and integration tests, ensuring all functions complete as expected under various market conditions.
+   - [ ] Test for edge cases—such as connection failures or invalid trading parameters.
+
+10. **User Feedback Mechanism**
+    - [ ] Ensure the GUI provides clear feedback on trading status, including successful trades, errors, and performance reports.
+    - [ ] Integrate user notifications via Telegram for real-time updates and alerts.
+
+## Next Steps
+- Go through each item systematically.
+- Update the bot's codebase accordingly and test improvements.
+- Run simulated trading to observe how the bot performs before going live.
+
+By following this checklist, your bot should become more robust, capable of seamless auto trading and analysis. Ensure to test thoroughly after making each modification for optimal performance.
