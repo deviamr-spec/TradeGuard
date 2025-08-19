@@ -287,6 +287,38 @@ class RiskManager:
             self.logger.error(f"❌ Emergency stop check error: {str(e)}")
             return False
 
+    def get_risk_metrics(self) -> Dict[str, Any]:
+        """
+        Get current risk metrics for GUI display.
+        
+        Returns:
+            Risk metrics dictionary
+        """
+        try:
+            return {
+                "daily_loss": self.daily_pnl,
+                "daily_loss_percentage": (abs(self.daily_pnl) / self.daily_start_balance * 100) if self.daily_start_balance > 0 else 0.0,
+                "current_drawdown": self.current_drawdown,
+                "position_count": self.session_trades,
+                "max_positions": self.max_positions,
+                "risk_per_trade": self.risk_per_trade * 100,
+                "emergency_stop": self.current_drawdown >= self.max_drawdown,
+                "margin_usage": self.margin_usage_percent,
+                "session_trades": self.session_trades,
+                "daily_trades": self.daily_trades
+            }
+        except Exception as e:
+            self.logger.error(f"❌ Risk metrics error: {str(e)}")
+            return {
+                "daily_loss": 0.0,
+                "daily_loss_percentage": 0.0,
+                "current_drawdown": 0.0,
+                "position_count": 0,
+                "max_positions": 5,
+                "risk_per_trade": 1.0,
+                "emergency_stop": False
+            }
+
     def get_risk_report(self) -> Dict[str, Any]:
         """
         Generate comprehensive risk report.

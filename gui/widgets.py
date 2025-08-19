@@ -104,7 +104,7 @@ class AccountInfoWidget(QGroupBox):
             profit = equity - balance
             profit_color = "green" if profit >= 0 else "red"
             profit_percent = (profit / balance * 100) if balance > 0 else 0.0
-            
+
             self.profit_label.setText(f"P&L: ${profit:,.2f} ({profit_percent:+.2f}%)")
             self.profit_label.setStyleSheet(f"color: {profit_color}; font-weight: bold;")
 
@@ -147,16 +147,16 @@ class TradingControlWidget(QGroupBox):
 
         # Auto-trading toggle
         auto_layout = QHBoxLayout()
-        
+
         self.auto_trading_checkbox = QCheckBox("🤖 Auto Trading")
         self.auto_trading_checkbox.setChecked(True)
         self.auto_trading_checkbox.stateChanged.connect(self.toggle_auto_trading)
         self.auto_trading_checkbox.setStyleSheet("color: #00ff00; font-weight: bold;")
-        
+
         self.auto_tpsl_checkbox = QCheckBox("🎯 Auto TP/SL")
         self.auto_tpsl_checkbox.setChecked(True)
         self.auto_tpsl_checkbox.setStyleSheet("color: #00ff00; font-weight: bold;")
-        
+
         auto_layout.addWidget(self.auto_trading_checkbox)
         auto_layout.addWidget(self.auto_tpsl_checkbox)
         layout.addLayout(auto_layout)
@@ -231,13 +231,13 @@ class TradingControlWidget(QGroupBox):
         try:
             self.auto_trading_enabled = bool(state)
             self.trade_engine.trading_enabled = self.auto_trading_enabled
-            
+
             status_text = "ENABLED" if self.auto_trading_enabled else "DISABLED"
             color = "#00ff00" if self.auto_trading_enabled else "#ff0000"
-            
+
             self.auto_trading_checkbox.setStyleSheet(f"color: {color}; font-weight: bold;")
             self.logger.info(f"🤖 Auto-trading {status_text}")
-            
+
         except Exception as e:
             self.logger.error(f"❌ Failed to toggle auto-trading: {str(e)}")
 
@@ -249,7 +249,7 @@ class TradingControlWidget(QGroupBox):
                 if not self.stop_btn.isEnabled():
                     self.start_btn.setEnabled(False)
                     self.stop_btn.setEnabled(True)
-                    
+
                 # Update status based on auto-trading state
                 if getattr(self.trade_engine, 'trading_enabled', False):
                     self.status_label.setText("Status: AUTO TRADING")
@@ -309,7 +309,7 @@ class RiskMonitorWidget(QGroupBox):
             if not self.risk_manager:
                 self.risk_status_label.setText("Status: No Risk Manager")
                 return
-                
+
             # Get risk metrics safely
             metrics = self.risk_manager.get_risk_metrics()
 
@@ -351,7 +351,7 @@ class RiskMonitorWidget(QGroupBox):
         try:
             if not risk_metrics:
                 return
-                
+
             daily_loss = risk_metrics.get('daily_loss', 0.0)
             daily_loss_pct = risk_metrics.get('daily_loss_percentage', 0.0)
             max_drawdown_pct = risk_metrics.get('current_drawdown', 0.0) * 100
@@ -395,75 +395,52 @@ class PerformanceMonitorWidget(QGroupBox):
     def init_ui(self):
         layout = QGridLayout()
 
-        # Performance metrics
+        # Performance metrics labels
         self.total_trades_label = QLabel("Total Trades: 0")
         self.win_rate_label = QLabel("Win Rate: 0%")
-        self.total_profit_label = QLabel("Total Profit: $0.00")
-        self.best_trade_label = QLabel("Best Trade: $0.00")
-        self.worst_trade_label = QLabel("Worst Trade: $0.00")
-        self.avg_trade_label = QLabel("Avg Trade: $0.00")
+        self.profit_label = QLabel("Profit: $0.00")
+        self.drawdown_label = QLabel("Drawdown: 0%")
 
         # Layout
         layout.addWidget(self.total_trades_label, 0, 0)
         layout.addWidget(self.win_rate_label, 0, 1)
-        layout.addWidget(self.total_profit_label, 1, 0, 1, 2)
-        layout.addWidget(self.best_trade_label, 2, 0)
-        layout.addWidget(self.worst_trade_label, 2, 1)
-        layout.addWidget(self.avg_trade_label, 3, 0, 1, 2)
+        layout.addWidget(self.profit_label, 1, 0)
+        layout.addWidget(self.drawdown_label, 1, 1)
 
         self.setLayout(layout)
 
     def update_data(self):
         """Update performance monitoring data."""
         try:
-            # Get performance metrics from reporting manager safely
+            if not self.trade_engine:
+                return
+
+            # Get performance metrics from reporting manager
             if hasattr(self.trade_engine, 'reporting'):
                 metrics = self.trade_engine.reporting.get_performance_metrics()
+
+                if "error" not in metrics:
+                    trading_stats = metrics.get("trading_stats", {})
+                    profit_loss = metrics.get("profit_loss", {})
+                    risk_metrics = metrics.get("risk_metrics", {})
+
+                    self.total_trades_label.setText(f"Total Trades: {trading_stats.get('total_trades', 0)}")
+                    self.win_rate_label.setText(f"Win Rate: {trading_stats.get('win_rate', 0):.1f}%")
+                    self.profit_label.setText(f"Profit: ${profit_loss.get('net_profit', 0):.2f}")
+                    self.drawdown_label.setText(f"Drawdown: {risk_metrics.get('max_drawdown', 0)*100:.1f}%")
+                else:
+                    self.total_trades_label.setText("Total Trades: Error")
+                    self.win_rate_label.setText("Win Rate: Error")
+                    self.profit_label.setText("Profit: Error")
+                    self.drawdown_label.setText("Drawdown: Error")
             else:
-                # Fallback metrics
-                metrics = {
-                    'total_trades': 0,
-                    'win_rate': 0.0,
-                    'total_profit': 0.0,
-                    'best_trade': 0.0,
-                    'worst_trade': 0.0,
-                    'average_trade': 0.0
-                }
-
-            total_trades = metrics.get('total_trades', 0)
-            win_rate = metrics.get('win_rate', 0.0)
-            total_profit = metrics.get('total_profit', 0.0)
-            best_trade = metrics.get('best_trade', 0.0)
-            worst_trade = metrics.get('worst_trade', 0.0)
-            avg_trade = metrics.get('average_trade', 0.0)
-
-            # Update labels
-            self.total_trades_label.setText(f"Total Trades: {total_trades}")
-            self.win_rate_label.setText(f"Win Rate: {win_rate:.1f}%")
-
-            profit_color = "green" if total_profit >= 0 else "red"
-            self.total_profit_label.setText(f"Total Profit: ${total_profit:.2f}")
-            self.total_profit_label.setStyleSheet(f"color: {profit_color}; font-weight: bold;")
-
-            self.best_trade_label.setText(f"Best Trade: ${best_trade:.2f}")
-            self.best_trade_label.setStyleSheet("color: green;")
-
-            self.worst_trade_label.setText(f"Worst Trade: ${worst_trade:.2f}")
-            self.worst_trade_label.setStyleSheet("color: red;")
-
-            avg_color = "green" if avg_trade >= 0 else "red"
-            self.avg_trade_label.setText(f"Avg Trade: ${avg_trade:.2f}")
-            self.avg_trade_label.setStyleSheet(f"color: {avg_color};")
+                self.total_trades_label.setText("Total Trades: N/A")
+                self.win_rate_label.setText("Win Rate: N/A")
+                self.profit_label.setText("Profit: N/A")
+                self.drawdown_label.setText("Drawdown: N/A")
 
         except Exception as e:
             self.logger.error(f"❌ Performance monitor update error: {str(e)}")
-            # Set default values on error
-            self.total_trades_label.setText("Total Trades: 0")
-            self.win_rate_label.setText("Win Rate: 0%")
-            self.total_profit_label.setText("Total Profit: $0.00")
-            self.best_trade_label.setText("Best Trade: $0.00")
-            self.worst_trade_label.setText("Worst Trade: $0.00")
-            self.avg_trade_label.setText("Avg Trade: $0.00")
 
 class MarketDataWidget(QGroupBox):
     """Widget for displaying market data."""
@@ -508,7 +485,7 @@ class MarketDataWidget(QGroupBox):
                 if tick_data:
                     # Symbol with signal indicator
                     symbol_item = QTableWidgetItem(tick_data["symbol"])
-                    
+
                     # Get current signal analysis (simplified)
                     try:
                         # Quick analysis for display purposes
@@ -517,7 +494,7 @@ class MarketDataWidget(QGroupBox):
                             from core.strategy.scalping import ScalpingStrategy
                             strategy = ScalpingStrategy()
                             signal = strategy.generate_signal(df, symbol)
-                            
+
                             if signal.get("signal") == "BUY":
                                 symbol_item.setBackground(QColor(0, 100, 0))  # Dark green
                                 symbol_item.setForeground(QColor(255, 255, 255))
@@ -526,7 +503,7 @@ class MarketDataWidget(QGroupBox):
                                 symbol_item.setForeground(QColor(255, 255, 255))
                     except:
                         pass  # Skip analysis on error
-                    
+
                     self.table.setItem(row, 0, symbol_item)
 
                     # Bid

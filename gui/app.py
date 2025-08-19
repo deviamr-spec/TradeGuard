@@ -367,7 +367,7 @@ class TradingBotGUI(QMainWindow):
         """Start periodic GUI updates."""
         try:
             if self.update_timer:
-                self.update_timer.start(1000)  # Update every 1 second
+                self.update_timer.start(2000)  # Reduced frequency: Update every 2 seconds
                 self.logger.info("✅ GUI updates started")
         except Exception as e:
             self.logger.error(f"❌ Failed to start updates: {str(e)}")
@@ -375,25 +375,26 @@ class TradingBotGUI(QMainWindow):
     def update_data(self):
         """Update all real-time data in the GUI."""
         try:
-            # Update account info
-            self.update_account_info()
-
-            # Update market data
-            self.update_market_data()
-
-            # Update positions
-            self.update_positions_data()
-
-            # Update performance metrics
-            self.update_performance_data()
-
             # Update risk metrics
             if hasattr(self, 'risk_manager') and self.risk_manager:
-                risk_metrics = self.risk_manager.get_risk_metrics()
-                # Update risk display widgets here if they exist
-                if hasattr(self.widgets.get('risk_monitor'), 'update_risk_metrics'):
-                    self.widgets['risk_monitor'].update_risk_metrics(risk_metrics)
+                try:
+                    risk_metrics = self.risk_manager.get_risk_metrics()
+                    if hasattr(self.widgets.get('risk_monitor'), 'update_risk_metrics'):
+                        self.widgets['risk_monitor'].update_risk_metrics(risk_metrics)
+                except Exception as e:
+                    self.logger.debug(f"Risk metrics update error: {str(e)}")
 
+            # Update performance metrics
+            try:
+                self.update_performance_data()
+            except Exception as e:
+                self.logger.debug(f"Performance update error: {str(e)}")
+
+            # Update account info (less frequently)
+            try:
+                self.update_account_info()
+            except Exception as e:
+                self.logger.debug(f"Account update error: {str(e)}")
 
         except Exception as e:
             self.logger.error(f"❌ Data update error: {str(e)}")
@@ -407,32 +408,44 @@ class TradingBotGUI(QMainWindow):
             self.is_updating = True
 
             # Update connection status
-            if self.mt5_client.connected:
-                self.connection_status_label.setText("Connected")
-                self.connection_status_label.setStyleSheet("color: green; font-weight: bold; padding: 0 10px;")
-            else:
-                self.connection_status_label.setText("Disconnected")
-                self.connection_status_label.setStyleSheet("color: red; font-weight: bold; padding: 0 10px;")
+            try:
+                if self.mt5_client.connected:
+                    self.connection_status_label.setText("Connected")
+                    self.connection_status_label.setStyleSheet("color: green; font-weight: bold; padding: 0 10px;")
+                else:
+                    self.connection_status_label.setText("Disconnected")
+                    self.connection_status_label.setStyleSheet("color: red; font-weight: bold; padding: 0 10px;")
+            except:
+                pass
 
             # Update time
-            current_time = datetime.now().strftime("%H:%M:%S")
-            self.time_label.setText(current_time)
+            try:
+                current_time = datetime.now().strftime("%H:%M:%S")
+                self.time_label.setText(current_time)
+            except:
+                pass
 
-            # Update all widgets safely
-            for widget_name, widget in self.widgets.items():
-                try:
-                    if hasattr(widget, 'update_data'):
-                        if widget_name == 'equity_chart':
-                            # Handle equity chart specially
-                            if self.mt5_client.connected:
-                                account_info = self.mt5_client.get_account_info()
-                                if account_info:
-                                    equity = account_info.get('equity', 0.0)
-                                    widget.update_data(equity)
-                        else:
+            # Update only essential widgets to reduce lag
+            essential_widgets = ['account', 'performance_monitor', 'risk_monitor']
+            
+            for widget_name in essential_widgets:
+                if widget_name in self.widgets:
+                    try:
+                        widget = self.widgets[widget_name]
+                        if hasattr(widget, 'update_data'):
                             widget.update_data()
-                except Exception as e:
-                    self.logger.error(f"❌ Widget {widget_name} update error: {str(e)}")
+                    except Exception as e:
+                        self.logger.debug(f"Widget {widget_name} update error: {str(e)}")
+
+            # Update equity chart less frequently
+            try:
+                if 'equity_chart' in self.widgets and self.mt5_client.connected:
+                    account_info = self.mt5_client.get_account_info()
+                    if account_info:
+                        equity = account_info.get('equity', 0.0)
+                        self.widgets['equity_chart'].update_data(equity)
+            except Exception as e:
+                self.logger.debug(f"Equity chart update error: {str(e)}")
 
         except Exception as e:
             self.logger.error(f"❌ GUI update error: {str(e)}")

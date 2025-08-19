@@ -223,6 +223,15 @@ class ReportingManager:
         except Exception as e:
             self.logger.error(f"❌ Performance metrics calculation error: {str(e)}")
 
+    def get_performance_metrics(self) -> Dict[str, Any]:
+        """
+        Get performance metrics for GUI display.
+        
+        Returns:
+            Performance metrics dictionary
+        """
+        return self.calculate_performance_metrics()
+
     def calculate_performance_metrics(self) -> Dict[str, Any]:
         """
         Calculate and return comprehensive performance metrics.

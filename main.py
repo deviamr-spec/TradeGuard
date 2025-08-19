@@ -96,10 +96,10 @@ class TradingBotApplication:
                 try:
                     self.main_window = TradingBotGUI(self.mt5_client, self.trade_engine)
                     
-                    # Setup update timer for real-time data
+                    # Setup update timer for real-time data (optimized for Windows)
                     self.update_timer = QTimer()
                     self.update_timer.timeout.connect(self._update_data)
-                    self.update_timer.start(1000)  # Update every second
+                    self.update_timer.start(3000)  # Update every 3 seconds to reduce lag
                     
                     self.logger.info("✅ GUI initialized successfully")
                 except Exception as e:
