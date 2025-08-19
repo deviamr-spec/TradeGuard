@@ -142,18 +142,34 @@ class MT5Client:
             if not self.connected or not MT5_AVAILABLE or not mt5:
                 return False
 
-            account_info = mt5.account_info()
-            if not account_info:
+            # Check if MT5 is still initialized
+            try:
+                account_info = mt5.account_info()
+                if not account_info:
+                    self.logger.warning("⚠️ Connection health check failed: No account info")
+                    return False
+            except Exception as e:
+                self.logger.warning(f"⚠️ Connection health check failed: Account info error - {str(e)}")
                 return False
 
-            # Test tick data
+            # Test tick data availability
+            tick_available = False
             for test_symbol in ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]:
-                tick = mt5.symbol_info_tick(test_symbol)
-                if tick:
-                    self.last_health_check = datetime.now()
-                    return True
+                try:
+                    detected_symbol = self.auto_detect_symbol(test_symbol)
+                    tick = mt5.symbol_info_tick(detected_symbol)
+                    if tick and hasattr(tick, 'bid') and hasattr(tick, 'ask') and tick.bid > 0 and tick.ask > 0:
+                        tick_available = True
+                        break
+                except Exception:
+                    continue
 
-            return False
+            if not tick_available:
+                self.logger.warning("⚠️ Connection health check failed: No tick data available")
+                return False
+
+            self.last_health_check = datetime.now()
+            return True
 
         except Exception as e:
             self.logger.debug(f"Health check error: {str(e)}")
@@ -165,11 +181,40 @@ class MT5Client:
             if self.demo_mode:
                 return True
                 
+            # Prevent multiple simultaneous reconnection attempts
+            current_time = datetime.now()
+            if hasattr(self, 'last_reconnect_attempt'):
+                time_since_reconnect = (current_time - self.last_reconnect_attempt).total_seconds()
+                if time_since_reconnect < 10:  # Wait at least 10 seconds between attempts
+                    return self.connected
+            
+            self.last_reconnect_attempt = current_time
+                
+            # Quick health check first
             if self.is_connection_healthy():
                 return True
 
             self.logger.warning("🔄 Connection unhealthy, attempting auto-reconnection...")
-            return self.connect()
+            
+            # Limit reconnection attempts
+            max_reconnect_attempts = 5
+            if not hasattr(self, 'reconnect_count'):
+                self.reconnect_count = 0
+                
+            self.reconnect_count += 1
+            if self.reconnect_count > max_reconnect_attempts:
+                self.logger.warning(f"⚠️ Max reconnection attempts ({max_reconnect_attempts}) reached")
+                return False
+                
+            self.logger.info(f"🔄 Reconnection attempt {self.reconnect_count}/{max_reconnect_attempts} in 2s...")
+            time.sleep(2)
+            
+            success = self.connect()
+            if success:
+                self.reconnect_count = 0  # Reset counter on successful reconnection
+                self.logger.info("✅ Auto-reconnection successful!")
+            
+            return success
 
         except Exception as e:
             self.logger.error(f"Auto-reconnection error: {e}")
@@ -366,23 +411,37 @@ class MT5Client:
                 
                 base_price = base_prices.get(symbol, 1.0000)
                 
-                # Generate realistic OHLC data
+                # Generate realistic OHLC data with proper validation
                 data = []
                 current_price = base_price
                 
                 for _ in range(count):
-                    change = random.uniform(-0.002, 0.002)
-                    current_price += change
+                    # Generate open price (previous close or slight variation)
+                    open_price = current_price
                     
-                    high = current_price + random.uniform(0, 0.001)
-                    low = current_price - random.uniform(0, 0.001)
-                    close = current_price + random.uniform(-0.0005, 0.0005)
+                    # Generate price movement
+                    change_percent = random.uniform(-0.002, 0.002)
+                    price_range = abs(change_percent * current_price)
+                    
+                    # Generate high and low ensuring proper OHLC relationships
+                    high_add = random.uniform(0, price_range)
+                    low_sub = random.uniform(0, price_range)
+                    
+                    high = open_price + high_add
+                    low = open_price - low_sub
+                    
+                    # Generate close within high-low range
+                    close = random.uniform(low, high)
+                    
+                    # Ensure OHLC relationships are valid
+                    high = max(high, open_price, close)
+                    low = min(low, open_price, close)
                     
                     data.append({
-                        'open': current_price,
-                        'high': high,
-                        'low': low,
-                        'close': close,
+                        'open': round(open_price, 5),
+                        'high': round(high, 5),
+                        'low': round(low, 5),
+                        'close': round(close, 5),
                         'tick_volume': random.randint(50, 200)
                     })
                     current_price = close

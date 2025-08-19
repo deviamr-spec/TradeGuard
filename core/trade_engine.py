@@ -125,13 +125,17 @@ class TradeEngine:
                 try:
                     loop_start = time.time()
 
-                    # Monitor connection health
-                    if hasattr(self.mt5_client, 'monitor_connection'):
-                        connection_status = self.mt5_client.monitor_connection()
-                        if not connection_status.get("healthy", False) and not connection_status.get("demo_mode", False):
-                            self.logger.warning("⚠️ Connection unhealthy, attempting reconnection...")
-                            if hasattr(self.mt5_client, 'auto_reconnect'):
-                                self.mt5_client.auto_reconnect()
+                    # Monitor connection health (less frequent to prevent spam)
+                    current_time = datetime.now()
+                    if hasattr(self.mt5_client, 'last_health_check'):
+                        time_since_check = (current_time - (self.mt5_client.last_health_check or current_time)).total_seconds()
+                        if time_since_check > 30:  # Check health every 30 seconds
+                            if hasattr(self.mt5_client, 'monitor_connection'):
+                                connection_status = self.mt5_client.monitor_connection()
+                                if not connection_status.get("healthy", False) and not connection_status.get("demo_mode", False):
+                                    self.logger.warning("⚠️ Connection unhealthy, attempting reconnection...")
+                                    if hasattr(self.mt5_client, 'auto_reconnect'):
+                                        self.mt5_client.auto_reconnect()
 
                     # Update account information
                     account_info = self.mt5_client.get_account_info()

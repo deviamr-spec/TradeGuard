@@ -473,8 +473,8 @@ class ScalpingStrategy:
                 self.strategy_stats["sell_signals"] += 1
 
             # Update average confidence
-            total_confidence = (self.strategy_stats["avg_confidence"] * 
-                              (self.strategy_stats["total_signals"] - 1) + 
+            total_confidence = (self.strategy_stats["avg_confidence"] *
+                              (self.strategy_stats["total_signals"] - 1) +
                               signal_data["confidence"])
             self.strategy_stats["avg_confidence"] = total_confidence / self.strategy_stats["total_signals"]
 
@@ -483,7 +483,7 @@ class ScalpingStrategy:
         except Exception as e:
             self.logger.error(f"❌ Stats update error: {str(e)}")
 
-    def calculate_position_size(self, signal: Dict[str, Any], balance: float, 
+    def calculate_position_size(self, signal: Dict[str, Any], balance: float,
                               symbol_info: Dict[str, Any]) -> Tuple[float, float, float]:
         """
         Calculate position size with enhanced validation.
